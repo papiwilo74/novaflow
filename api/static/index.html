@@ -58,8 +58,8 @@
 </head>
 <body class="bg-dark-bg text-slate-100 min-h-screen font-sans antialiased custom-scrollbar">
 
-  <!-- NOTIFICATION TOAST CONTAINER -->
-  <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-3 pointer-events-none"></div>
+  <!-- NOTIFICATION TOAST CONTAINER: Abajo a la derecha para no tapar la navegación ni los menús -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none max-w-sm"></div>
 
   <!-- HEADER -->
   <header class="border-b border-dark-border bg-dark-card/80 backdrop-blur sticky top-0 z-40">
@@ -87,6 +87,9 @@
           <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
           <span id="ws-text">TELEMETRÍA EN VIVO</span>
         </div>
+        <button id="btn-toggle-toasts" onclick="toggleToasts()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition" title="Notificaciones Activas (Haz clic para silenciar)">
+          <i id="icon-toast" data-lucide="bell" class="w-4 h-4"></i>
+        </button>
         <button onclick="refreshCurrentView()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition" title="Refrescar datos">
           <i data-lucide="rotate-cw" class="w-4 h-4"></i>
         </button>
@@ -972,28 +975,87 @@
       }
     }
 
-    function showToast(alert) {
+    let toastsEnabled = true;
+
+    function toggleToasts() {
+      toastsEnabled = !toastsEnabled;
+      const btn = document.getElementById('btn-toggle-toasts');
+      const icon = document.getElementById('icon-toast');
       const container = document.getElementById('toast-container');
+      if (!toastsEnabled) {
+        btn.classList.add('text-rose-400', 'bg-rose-500/10', 'border-rose-500/30');
+        btn.classList.remove('bg-slate-800', 'text-slate-300', 'border-slate-700');
+        btn.title = "Notificaciones Silenciadas (Haz clic para activar)";
+        icon.setAttribute('data-lucide', 'bell-off');
+        if (container) container.innerHTML = '';
+      } else {
+        btn.classList.remove('text-rose-400', 'bg-rose-500/10', 'border-rose-500/30');
+        btn.classList.add('bg-slate-800', 'text-slate-300', 'border-slate-700');
+        btn.title = "Notificaciones Activas (Haz clic para silenciar)";
+        icon.setAttribute('data-lucide', 'bell');
+      }
+      lucide.createIcons();
+    }
+
+    function showToast(alert, type) {
+      if (!toastsEnabled) return;
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+
+      // Limitar a máximo 2 notificaciones simultáneas en pantalla
+      while (container.children.length >= 2) {
+        container.firstElementChild.remove();
+      }
+
       const toast = document.createElement('div');
-      toast.className = `p-4 rounded-xl border shadow-xl bg-slate-900/95 backdrop-blur max-w-sm pointer-events-auto flex items-start gap-3 transition-all duration-300 transform translate-y-0 ${
-        alert.severity === 'CRITICAL' ? 'border-rose-500/60 text-rose-200' : 'border-amber-500/60 text-amber-200'
-      }`;
+      const isString = typeof alert === 'string';
+      const severity = isString ? (type === 'success' ? 'SUCCESS' : 'INFO') : (alert.severity || 'INFO');
+      const title = isString ? alert : (alert.title || 'Alerta de Seguridad');
+      const category = isString ? 'SISTEMA' : (alert.category || 'DETECCIÓN');
+
+      const borderClass = severity === 'CRITICAL' 
+        ? 'border-rose-500/70 text-rose-200' 
+        : (severity === 'HIGH' ? 'border-amber-500/70 text-amber-200' : 'border-blue-500/60 text-blue-200');
+      const iconClass = severity === 'CRITICAL' 
+        ? 'text-rose-400' 
+        : (severity === 'HIGH' ? 'text-amber-400' : 'text-blue-400');
+
+      toast.className = `toast-item p-3 rounded-xl border shadow-2xl bg-slate-900/95 backdrop-blur max-w-xs pointer-events-auto flex items-start gap-2.5 transition-all duration-300 transform translate-y-0 cursor-pointer ${borderClass}`;
       toast.innerHTML = `
-        <i data-lucide="shield-alert" class="w-5 h-5 flex-shrink-0 mt-0.5 ${alert.severity === 'CRITICAL' ? 'text-rose-400' : 'text-amber-400'}"></i>
-        <div class="flex-1 text-xs">
+        <i data-lucide="shield-alert" class="w-4 h-4 flex-shrink-0 mt-0.5 ${iconClass}"></i>
+        <div class="flex-1 text-xs pr-1">
           <div class="flex items-center justify-between font-bold text-white mb-0.5">
-            <span>[${alert.severity}] ${alert.category}</span>
-            <span class="text-[10px] opacity-75 font-mono">${new Date().toLocaleTimeString()}</span>
+            <span class="text-[11px]">[${severity}] ${category}</span>
+            <span class="text-[9px] opacity-70 font-mono ml-2">${new Date().toLocaleTimeString()}</span>
           </div>
-          <p class="text-slate-300 leading-snug">${alert.title}</p>
+          <p class="text-slate-300 leading-tight text-[11px]">${title}</p>
         </div>
+        <button type="button" class="text-slate-400 hover:text-white p-0.5 -mr-1 -mt-0.5 rounded opacity-60 hover:opacity-100 transition" title="Cerrar notificación">
+          <i data-lucide="x" class="w-3.5 h-3.5"></i>
+        </button>
       `;
+
+      // Cerrar al hacer clic en la X o en la notificación
+      const closeBtn = toast.querySelector('button');
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toast.remove();
+      });
+      toast.addEventListener('click', () => {
+        toast.remove();
+      });
+
       container.appendChild(toast);
       lucide.createIcons();
+
+      // Auto-eliminar a los 3 segundos
       setTimeout(() => {
-        toast.style.opacity = '0';
-        setTimeout(() => toast.remove(), 300);
-      }, 5000);
+        if (toast.parentNode) {
+          toast.style.opacity = '0';
+          toast.style.transform = 'translateY(10px)';
+          setTimeout(() => toast.remove(), 250);
+        }
+      }, 3000);
     }
 
     // --- REST FETCH FUNCTIONS ---
