@@ -1412,12 +1412,14 @@
 
     async function runPurpleSimulation() {
       const btn = document.getElementById('btn-run-purple');
+      if (btn.disabled) return;
       btn.disabled = true;
       btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Simulando Ataques...';
       if (window.lucide) lucide.createIcons();
 
       try {
         const res = await fetch('/api/v1/purple-team/simulate', { method: 'POST' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
 
         document.getElementById('purple-stat-total').textContent = data.vectors_executed;
@@ -1434,7 +1436,8 @@
         loadOverviewMetrics();
         showToast(`Simulación Purple Team completada: ${data.alerts_triggered}/${data.vectors_executed} vectores detectados (${data.detection_rate_pct}%)`, 'success');
       } catch (e) {
-        alert("Error ejecutando simulación Purple Team");
+        console.error("Error en simulación Purple Team:", e);
+        showToast("Error ejecutando simulación Purple Team", "error");
       } finally {
         btn.disabled = false;
         btn.innerHTML = '<i data-lucide="play" class="w-4 h-4"></i> Simular Ataques OmniBreach';
@@ -1849,7 +1852,7 @@
           critList.innerHTML = '<div class="text-[10px] text-slate-500 py-1">Sin activos de alta criticidad en radio inmediato.</div>';
         }
       } catch (e) {
-        alert("Error al calcular el Blast Radius para el host seleccionado.");
+        showToast("Error al calcular el Blast Radius para el host seleccionado.", "error");
       }
     }
 
@@ -1884,7 +1887,7 @@
           });
         }
       } catch (e) {
-        alert("No se encontró cadena de intrusión causal para este host.");
+        showToast("No se encontró cadena de intrusión causal para este host.", "warning");
       }
     }
 
