@@ -1429,8 +1429,10 @@
         document.getElementById('purple-cef-terminal').textContent = cefLogs.join('\n\n') || '// No se recibieron registros CEF.';
 
         // Re-cargar alertas y matriz
+        loadPurpleTeam();
         loadAlerts();
         loadOverviewMetrics();
+        showToast(`Simulación Purple Team completada: ${data.alerts_triggered}/${data.vectors_executed} vectores detectados (${data.detection_rate_pct}%)`, 'success');
       } catch (e) {
         alert("Error ejecutando simulación Purple Team");
       } finally {
