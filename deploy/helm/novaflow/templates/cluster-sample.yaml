@@ -1,0 +1,28 @@
+﻿apiVersion: novasec.io/v1alpha1
+kind: NovaFlowCluster
+metadata:
+  name: {{ .Values.cluster.name }}
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  version: {{ .Values.cluster.version }}
+  workers:
+    replicas: {{ .Values.cluster.workers.replicas }}
+    udpPort: {{ .Values.cluster.workers.udpPort }}
+    batchSize: {{ .Values.cluster.workers.batchSize }}
+    resources:
+      {{- toYaml .Values.cluster.workers.resources | nindent 6 }}
+  api:
+    replicas: {{ .Values.cluster.api.replicas }}
+    enableDashboard: {{ .Values.cluster.api.enableDashboard }}
+    serviceType: {{ .Values.cluster.api.serviceType }}
+  clickhouse:
+    replicas: {{ .Values.cluster.clickhouse.replicas }}
+    retentionDays: {{ .Values.cluster.clickhouse.retentionDays }}
+    storageSize: {{ .Values.cluster.clickhouse.storageSize }}
+  kafka:
+    enabled: {{ .Values.cluster.kafka.enabled }}
+    brokerUrl: {{ .Values.cluster.kafka.brokerUrl }}
+  tenants:
+    {{- toYaml .Values.cluster.tenants | nindent 4 }}

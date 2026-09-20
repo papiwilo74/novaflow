@@ -1,0 +1,202 @@
+# NovaFlow NDR: Network Detection, Telemetry & Anomaly Engine
+
+[![Python Version](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://python.org)
+[![Tests](https://img.shields.io/badge/Tests-151%20Passing%20(100%25)-brightgreen.svg)]()
+[![Pure Python](https://img.shields.io/badge/Dependencies-Zero%20C%20%2F%20Npcap-orange.svg)]()
+[![Standards](https://img.shields.io/badge/Standards-NetFlow%20v5%2Fv9%20%7C%20IPFIX%20%7C%20CEF%20%7C%20OCSF%20%7C%20Sigma%20%7C%20MITRE-blueviolet.svg)]()
+
+**NovaFlow NDR** es una plataforma de análisis de telemetría de red y detección de intrusiones a nivel de transporte (L3/L4/L7), construida en Python utilizando primitivas binarias de bajo nivel (`struct`), concurrencia asíncrona (`asyncio`), baselining estadístico en tiempo constante ($O(1)$) y correlación defensiva **Purple Team**.
+
+---
+
+## 🏛️ Declaración de Transparencia de Ingeniería
+
+> **Nota para Evaluadores Técnicos y Reclutadores:**  
+> Este proyecto nació para comprender a fondo cómo operan los protocolos de red y los sistemas de detección comerciales (*Corelight, Vectra AI, Cisco Stealthwatch*) a nivel de bytes, sin depender de librerías de alto nivel o cajas negras.  
+> 
+> Para mantener la máxima honestidad y rigor técnico, la arquitectura del proyecto está clasificada en **tres niveles de madurez**:
+
+```
++----------------------------------------------------------------------------------------------------+
+|                                MATRIZ DE MADUREZ DE INGENIERÍA                                     |
++-----------------------------------+------------------------------------+---------------------------+
+| 🟢 COLUMNA 1: PRODUCTION-READY    | 🟡 COLUMNA 2: WORKING PROTOTYPES   | 🔵 COLUMNA 3: RESEARCH    |
+| (Probado en tests, núcleo sólido) | (Funcional, límites documentados)  | (I+D y visión de producto)|
++-----------------------------------+------------------------------------+---------------------------+
+| • Parser NetFlow v5 (RFC Cisco)   | • Bi-Flow Session Stitcher         | • Encrypted Traffic (ETA) |
+| • Welford Baselining O(1) Z-score | • Entropía Shannon para DNS        | • Grafo de Ataque G=(V,E) |
+| • Heurísticas L4 (PortScan, Flood)| • Escritor PCAP forense en memoria | • Patient Zero & Blast Rad|
+| • API Gateway FastAPI + WebSockets| • Playbooks SOAR declarativos      | • NetFlow v9 e IPFIX bin  |
+| • Exportador SIEM (CEF / Syslog)  | • Auto-clasificación conductual    | • Counting Bloom Filter   |
+| • Motor de Reglas Sigma (YAML)    | • MITRE ATT&CK Navigator v4.5      | • Correlación Kill Chain  |
+| • Threat Hunting Engine (AST DSL) | • Generador de Tráfico & Benchmark | • Evasiones de Detección  |
+| • Cumplimiento PCI-DSS / ISO 27001| • Detección C2 por Jitter / CV     | • Formato Abierto OCSF    |
++-----------------------------------+------------------------------------+---------------------------+
+```
+
+---
+
+### 🟢 1. Núcleo Implementado y Probado (Defendible en Entrevista)
+*Código de producción probado exhaustivamente mediante 151 pruebas automatizadas:*
+
+1. **Parser Binario NetFlow v5 (`collector/parser.py`)**:
+   - Decodificación exacta según el RFC de Cisco: cabecera fija de 24 bytes (`!HHIIIIBBH`) y registros de 48 bytes (`!4s4s4sHHIIIIHHBBBBHHBBH`).
+   - Cero copias innecesarias en el heap mediante `struct.unpack_from`.
+   - Recuperación ante datagramas truncados y validación estricta de `sys_uptime` y timestamps Epoch.
+2. **Lógica Matemática del Algoritmo de Welford (`detector/profiler.py`)**:
+   - Cálculo en pasada única de media móvil $\mu$, varianza acumulada $M_2$ y $Z$-score ($Z \ge 3.5$).
+   - Complejidad temporal y espacial $O(1)$: elimina la necesidad de almacenar ventanas gigantes de flujos históricos en memoria RAM.
+3. **Detección Determinista L4 (`detector/rules/`)**:
+   - *Port Scanning*: Detección de abanico horizontal (*fan-out*) sobre puertos destino en ventanas temporales.
+   - *SYN Flood*: Detección de ráfagas SYN anómalas contra un único socket con discriminación de IP Spoofing.
+   - *Exfiltración Volumétrica*: Detección por desvío estadístico y umbrales de ancho de banda.
+4. **API Gateway & Streaming SOC (`api/`)**:
+   - Servidor FastAPI asíncrono, canal WebSockets para telemetría en vivo, autenticación JWT HS256 y RBAC con roles (`ADMIN`, `ANALYST`, `READONLY`).
+5. **Interoperabilidad SIEM / SOC**:
+   - Exportación nativa a **ArcSight CEF:0** y **Syslog RFC 5424** consumibles directamente por Splunk, Elastic y Wazuh.
+
+---
+
+### 🟡 2. Prototipos Funcionales (Con Limitaciones de Producción Documentadas)
+*Lógica probada y funcional en laboratorio, con conocimiento explícito de sus retos en redes corporativas:*
+
+1. **Ensamblado Bi-Flow (`detector/biflow.py`)**:
+   - *Implementado:* Ensambla flujos unidireccionales $A \to B$ y $B \to A$ en sesiones bidireccionales calculando ratios de asimetría.
+   - *Límite en producción real:* En redes corporativas existe **ruteo asimétrico** (ida por un ISP/router y vuelta por otro). Requiere un bus de eventos distribuido (ej. Apache Kafka) para sincronizar flujos entre múltiples exportadores.
+2. **Entropía de Shannon para Detección de DNS Tunneling (`detector/entropy.py`)**:
+   - *Implementado:* Cálculo de $H(X) = -\sum p_i \log_2 p_i$ sobre subdominios para detectar canales Iodine/dnscat ($H(X) \ge 3.8$).
+   - *Límite en producción real:* CDNs legítimas (Cloudflare, Akamai, CloudFront) utilizan nombres pseudo-aleatorios que disparan falsos positivos sin una lista blanca rigurosa y aprendizaje contextual.
+3. **Escritor Forense PCAP en Memoria (`collector/forensics.py`)**:
+   - *Implementado:* Genera archivos `.pcap` libpcap válidos con suma criptográfica SHA-256 para peritaje pericial.
+   - *Límite en producción real:* NetFlow no contiene la carga útil completa (*full-payload*); el archivo sintetiza tramas L2/L3/L4 a partir de los metadatos de flujo para triaje rápido en Wireshark.
+4. **Generador de Playbooks SOAR (`detector/playbooks.py`, `detector/dispatcher.py`)**:
+   - *Implementado:* Generación automática de reglas de contención (`iptables`, `nftables`, `Cisco ACL`, `AWS NACL`) y despacho firmado con HMAC-SHA256 y Dead-Letter Queue (DLQ).
+   - *Límite en producción real:* En esta fase emite y despacha políticas declarativas a webhooks; en producción se conectaría a runners de ejecución remota (Ansible Automation Platform, Terraform, AWS SSM).
+
+---
+
+### 🔵 3. Investigación, Modelado y Roadmap Futuro (I+D)
+*Módulos que exploran la frontera técnica de soluciones NDR modernas (Darktrace, Vectra, Cisco ETA):*
+
+1. **Encrypted Traffic Analysis (ETA / SPLT) (`detector/eta.py`)**:
+   - *Concepto:* Inspirado en Cisco ETA, evalúa la secuencia de longitudes y tiempos de paquetes (SPLT) en el puerto 443 sin descifrar el tráfico TLS.
+   - *Roadmap:* Entrenar clasificadores supervisados con datasets públicos de malware cifrado (CTU-13, Stratosphere IPS).
+2. **Grafo de Ataque, Patient Zero y Blast Radius (`detector/graph.py`)**:
+   - *Concepto:* Modela la topología de red como un grafo dirigido $G=(V, E)$, rastrea causalmente hacia atrás el *Patient Zero* y computa mediante BFS el *Blast Radius* (0-100) hacia activos críticos.
+   - *Roadmap:* Para topologías con más de 100,000 activos, migrar el backend en memoria a una base de grafos distribuida (Neo4j / Memgraph).
+3. **Decodificador NetFlow v9 e IPFIX (RFC 3954 / 7011) (`collector/netflow_v9.py`)**:
+   - *Concepto:* Decodificador binario con caché de plantillas dinámicas (*Template Flowsets*) y soporte nativo IPv6 de 128 bits.
+   - *Roadmap:* Incorporar buffer de desordenamiento para manejar pérdidas UDP donde los datos preceden a la plantilla.
+4. **Counting Bloom Filter para Threat Intel (`detector/bloom_threat_intel.py`)**:
+   - *Concepto:* Filtro probabilístico contable en Python puro con doble hashing ($O(1)$ wire-speed) y parsers para feeds de Abuse.ch Feodo Tracker y STIX 2.1 JSON.
+
+---
+
+## 🔬 Núcleo Técnico: El Parser Binario NetFlow v5
+
+El protocolo NetFlow v5 empaqueta datagramas UDP en formato **Big-Endian** (orden de red). NovaFlow implementa la especificación canónica:
+
+```
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |          version (5)          |          count (1-30)         |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                         SysUptime (ms)                        |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                       unix_secs (Epoch)                       |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                          unix_nsecs                           |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                         flow_sequence                         |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |  engine_type  |   engine_id   |       sampling_interval       |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   |          1 a 30 Flow Records Consecutivos (48 bytes c/u)      |
+   |                                                               |
+```
+
+Formato Python Struct:
+- **Header (24 bytes):** `!HHIIIIBBH`
+- **Record (48 bytes):** `!4s4s4sHHIIIIHHBBBBHHBBH`
+
+---
+
+## ⚔️ Sinergia Purple Team: OmniBreach (Red Team) x NovaFlow NDR (Blue Team)
+
+NovaFlow NDR se complementa de forma natural con **OmniBreach** (herramienta DAST de pruebas de penetración y simulación de adversarios):
+
+```
++---------------------------+                    +---------------------------+
+|   OmniBreach (Red Team)   |                    |   NovaFlow NDR (Blue Team)|
+|  Offensive DAST Scanner   |                    |   Network Sensor & Engine |
++-------------+-------------+                    +-------------+-------------+
+              |                                                ^
+              | Simula Vectores Ofensivos                      | Analiza Telemetría
+              | (Recon, SSRF, DoS, C2 Egress)                  | Flujos NetFlow L3/L4/L7
+              v                                                |
+        [ Target Network Infrastructure / Switch / Router NetFlow ]
+                                                               |
+                                                               v
+                                                 +---------------------------+
+                                                 | • Alertas MITRE ATT&CK    |
+                                                 | • Grafo: Patient Zero     |
+                                                 | • Blast Radius Analysis   |
+                                                 | • Auto-Containment SOAR   |
+                                                 +---------------------------+
+```
+
+### Matriz de Correlación Purple Team:
+
+| Vector OmniBreach | Fase Ofensiva | Capa L3/L4/L7 | Detector NovaFlow | Técnica MITRE | Formato SIEM CEF |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **OB-RECON-01** | Service Discovery | L4 TCP (SYN Scan) | `PortScanDetector` | `T1046` | `CEF:0\|...\|PORT_SCAN\|...` |
+| **OB-EXFIL-02** | SSRF & Data Egress | L4 TCP (>20MB burst) | `BandwidthExfiltrationDetector`| `T1048` | `CEF:0\|...\|EXFILTRATION\|...` |
+| **OB-DOS-03** | Flood Stress Test | L4 TCP (Flag 0x02 burst)| `SynFloodDetector` | `T1498` | `CEF:0\|...\|SYN_FLOOD\|...` |
+| **OB-C2-04** | C2 Reverse Shell | L4/L7 TCP (Cobalt Strike)| `ThreatIntelMatcher` / `ETA` | `T1071 / T1573` | `CEF:0\|...\|MALICIOUS_C2\|...` |
+
+---
+
+## 🚀 Guía de Ejecución y Pruebas
+
+### 1. Requisitos e Instalación
+```bash
+git clone https://github.com/tu-usuario/novaflow-ndr.git
+cd novaflow-ndr
+python -m venv .venv
+source .venv/bin/activate  # En Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+### 2. Ejecutar la Suite de Pruebas Automatizadas (151 Tests - 100% Passing)
+```bash
+python -m unittest discover -s tests -p "test_*.py" -v
+```
+
+### 3. Ejecutar Benchmark de Tráfico Empresarial (Throughput & Latencia)
+```bash
+python tools/traffic_gen.py --mode benchmark --flows 2000
+```
+
+### 4. Ejecutar la Demostración Purple Team en Terminal
+```bash
+python scripts/purple_team_demo.py
+```
+
+### 5. Iniciar el Servidor API Gateway y SOC Dashboard
+```bash
+python -m uvicorn api.main:app --host 127.0.0.1 --port 8000 --reload
+```
+- **SOC Web Dashboard:** [http://127.0.0.1:8000/static/index.html](http://127.0.0.1:8000/static/index.html)
+- **Documentación OpenAPI (Swagger):** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+- **MITRE ATT&CK Navigator Layer:** `GET http://127.0.0.1:8000/api/v1/mitre/navigator-layer.json`
+- **Catálogo de Reglas Sigma:** `GET http://127.0.0.1:8000/api/v1/rules/sigma`
+- **Threat Hunting DSL & Playbooks:** `POST http://127.0.0.1:8000/api/v1/flows/hunt`
+- **Topología de Red Cytoscape/D3:** `GET http://127.0.0.1:8000/api/v1/graph/topology`
+- **Métricas Prometheus:** `GET http://127.0.0.1:8000/metrics`
+
+---
+
+## 📜 Licencia y Propósito Académico
+Este proyecto se distribuye bajo la licencia MIT. Diseñado con fines de investigación, formación en seguridad de redes y demostración de arquitectura de sistemas en ingeniería de ciberseguridad.

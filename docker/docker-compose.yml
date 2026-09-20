@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3-alpine
+    container_name: novaflow-clickhouse
+    restart: unless-stopped
+    ports:
+      - "8123:8123" # HTTP API
+      - "9000:9000" # Native TCP Client
+      - "9009:9009" # Inter-server replication (opcional en cluster)
+    environment:
+      CLICKHOUSE_DB: novaflow
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: ""
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    volumes:
+      - ./clickhouse/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql:ro
+      - clickhouse_data:/var/lib/clickhouse
+      - clickhouse_logs:/var/log/clickhouse-server
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  tabix:
+    image: tabixio/tabix:latest
+    container_name: novaflow-tabix-ui
+    restart: unless-stopped
+    ports:
+      - "8080:80" # Web GUI de administración de ClickHouse
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v23.3.11
+    container_name: novaflow-redpanda
+    command:
+      - redpanda
+      - start
+      - --smp
+      - "1"
+      - --memory
+      - "512M"
+      - --overprovisioned
+      - --kafka-addr
+      - "PLAINTEXT://0.0.0.0:9092,OUTSIDE://0.0.0.0:9094"
+      - --advertise-kafka-addr
+      - "PLAINTEXT://novaflow-redpanda:9092,OUTSIDE://localhost:9094"
+      - --pandaproxy-addr
+      - "0.0.0.0:8082"
+      - --advertise-pandaproxy-addr
+      - "localhost:8082"
+    ports:
+      - "9092:9092" # Kafka internal
+      - "9094:9094" # Kafka external client port
+      - "8082:8082" # HTTP Proxy
+    volumes:
+      - redpanda_data:/var/lib/redpanda/data
+
+volumes:
+  clickhouse_data:
+    name: novaflow_clickhouse_data
+  clickhouse_logs:
+    name: novaflow_clickhouse_logs
+  redpanda_data:
+    name: novaflow_redpanda_data

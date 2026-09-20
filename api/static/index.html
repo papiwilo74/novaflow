@@ -1,0 +1,1876 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NovaFlow NDR - Security Operations Center</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Cytoscape.js for Attack Graph Topology -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              500: '#3b82f6',
+              600: '#2563eb',
+              900: '#1e3a8a',
+            },
+            dark: {
+              bg: '#0a0e17',
+              card: '#111827',
+              border: '#1f2937',
+              hover: '#1e293b'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @keyframes pulse-slow {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .animate-pulse-slow {
+      animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="bg-dark-bg text-slate-100 min-h-screen font-sans antialiased custom-scrollbar">
+
+  <!-- NOTIFICATION TOAST CONTAINER -->
+  <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-3 pointer-events-none"></div>
+
+  <!-- HEADER -->
+  <header class="border-b border-dark-border bg-dark-card/80 backdrop-blur sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="h-10 w-10 rounded-lg bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400">
+          <i data-lucide="shield-alert" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-bold text-lg tracking-wider text-white">NOVAFLOW <span class="text-blue-500">NDR</span></h1>
+            <span class="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">Enterprise</span>
+          </div>
+          <p class="text-xs text-slate-400">Network Detection & Response &bull; NovaSec Technologies</p>
+        </div>
+      </div>
+
+      <!-- STATUS & CONTROLS -->
+      <div class="flex items-center gap-3">
+        <a href="/api/v1/reports/executive/html" target="_blank" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 text-xs font-medium transition" title="Generar Informe Ejecutivo C-Level">
+          <i data-lucide="file-check" class="w-3.5 h-3.5"></i>
+          <span>Reporte C-Level (Audit)</span>
+        </a>
+        <div id="ws-badge" class="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span id="ws-text">TELEMETRÍA EN VIVO</span>
+        </div>
+        <button onclick="refreshCurrentView()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition" title="Refrescar datos">
+          <i data-lucide="rotate-cw" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- NAVIGATION TABS -->
+  <div class="border-b border-dark-border bg-dark-bg/90">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex gap-2 sm:gap-6 text-sm font-medium">
+      <button onclick="switchTab('overview')" id="tab-overview" class="tab-btn py-3 px-3 border-b-2 border-blue-500 text-blue-400 flex items-center gap-2 transition">
+        <i data-lucide="activity" class="w-4 h-4"></i> Network Pulse
+      </button>
+      <button onclick="switchTab('talkers')" id="tab-talkers" class="tab-btn py-3 px-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 transition">
+        <i data-lucide="users" class="w-4 h-4"></i> Top Talkers
+      </button>
+      <button onclick="switchTab('incidents')" id="tab-incidents" class="tab-btn py-3 px-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 transition">
+        <i data-lucide="alert-triangle" class="w-4 h-4"></i> Incidentes de Seguridad
+        <span id="incidents-badge" class="ml-1 text-[11px] px-1.5 py-0.2 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 font-mono">0</span>
+      </button>
+      <button onclick="switchTab('flows')" id="tab-flows" class="tab-btn py-3 px-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 transition">
+        <i data-lucide="search" class="w-4 h-4"></i> Explorador Forense
+      </button>
+      <button onclick="switchTab('purple')" id="tab-purple" class="tab-btn py-3 px-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 transition">
+        <i data-lucide="crosshair" class="w-4 h-4 text-purple-400"></i> Purple Team (OmniBreach)
+      </button>
+      <button onclick="switchTab('mitre')" id="tab-mitre" class="tab-btn py-3 px-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 transition">
+        <i data-lucide="grid" class="w-4 h-4 text-emerald-400"></i> Matriz MITRE ATT&CK
+        <span id="mitre-heat-badge" class="ml-1 text-[10px] px-1.5 py-0.2 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-mono">HEATMAP</span>
+      </button>
+      <button onclick="switchTab('graph')" id="tab-graph" class="tab-btn py-3 px-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 transition">
+        <i data-lucide="share-2" class="w-4 h-4 text-cyan-400"></i> Grafo de Ataque
+        <span id="graph-badge" class="ml-1 text-[10px] px-1.5 py-0.2 rounded-full bg-cyan-950/60 text-cyan-400 border border-cyan-800/40 font-mono">TOPOLOGY</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- MAIN CONTAINER -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- ============================================================= -->
+    <!-- VIEW 1: OVERVIEW / NETWORK PULSE -->
+    <!-- ============================================================= -->
+    <section id="view-overview" class="space-y-6">
+      <!-- STAT CARDS -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <!-- Throughput -->
+        <div class="bg-dark-card border border-dark-border rounded-xl p-4 flex flex-col justify-between relative overflow-hidden">
+          <div class="flex items-center justify-between text-slate-400 text-xs">
+            <span>THROUGHPUT</span>
+            <i data-lucide="wifi" class="w-4 h-4 text-blue-400"></i>
+          </div>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span id="stat-mbps" class="text-3xl font-bold font-mono text-white">0.00</span>
+            <span class="text-xs text-slate-400">Mbps</span>
+          </div>
+          <div class="text-[11px] text-emerald-400 mt-1 flex items-center gap-1">
+            <i data-lucide="arrow-up-right" class="w-3 h-3"></i> En tiempo real
+          </div>
+        </div>
+
+        <!-- Packet Rate -->
+        <div class="bg-dark-card border border-dark-border rounded-xl p-4 flex flex-col justify-between">
+          <div class="flex items-center justify-between text-slate-400 text-xs">
+            <span>TASA DE PAQUETES</span>
+            <i data-lucide="layers" class="w-4 h-4 text-indigo-400"></i>
+          </div>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span id="stat-pps" class="text-3xl font-bold font-mono text-white">0.0</span>
+            <span class="text-xs text-slate-400">pkt/s</span>
+          </div>
+          <div class="text-[11px] text-slate-400 mt-1">Paquetes L3/L4</div>
+        </div>
+
+        <!-- Flow Rate -->
+        <div class="bg-dark-card border border-dark-border rounded-xl p-4 flex flex-col justify-between">
+          <div class="flex items-center justify-between text-slate-400 text-xs">
+            <span>TASA DE FLUJOS</span>
+            <i data-lucide="zap" class="w-4 h-4 text-amber-400"></i>
+          </div>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span id="stat-fps" class="text-3xl font-bold font-mono text-white">0.0</span>
+            <span class="text-xs text-slate-400">flows/s</span>
+          </div>
+          <div class="text-[11px] text-slate-400 mt-1">NetFlow v5/v9</div>
+        </div>
+
+        <!-- Total Analyzed -->
+        <div class="bg-dark-card border border-dark-border rounded-xl p-4 flex flex-col justify-between">
+          <div class="flex items-center justify-between text-slate-400 text-xs">
+            <span>TOTAL FLUJOS ANALIZADOS</span>
+            <i data-lucide="database" class="w-4 h-4 text-emerald-400"></i>
+          </div>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span id="stat-total-flows" class="text-2xl font-bold font-mono text-white">0</span>
+          </div>
+          <div class="text-[11px] text-slate-400 mt-1">Acumulado de sesión</div>
+        </div>
+
+        <!-- Security Incidents -->
+        <div class="bg-dark-card border border-rose-900/40 rounded-xl p-4 flex flex-col justify-between bg-gradient-to-br from-rose-950/20 to-dark-card">
+          <div class="flex items-center justify-between text-rose-300 text-xs">
+            <span>ALERTAS ACTIVAS</span>
+            <i data-lucide="shield-x" class="w-4 h-4 text-rose-400"></i>
+          </div>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span id="stat-alerts" class="text-3xl font-bold font-mono text-rose-400">0</span>
+            <span id="stat-critical-badge" class="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-mono">0 CRIT</span>
+          </div>
+          <div class="text-[11px] text-rose-400/80 mt-1 flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Heurísticas + ML
+          </div>
+        </div>
+      </div>
+
+      <!-- CHARTS SECTION -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Live Throughput Chart -->
+        <div class="lg:col-span-2 bg-dark-card border border-dark-border rounded-xl p-5">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h2 class="text-sm font-semibold text-white tracking-wide">CONSUMO DE ANCHO DE BANDA EN TIEMPO REAL</h2>
+              <p class="text-xs text-slate-400">Throughput instantáneo (Mbps) transmitido vía WebSockets</p>
+            </div>
+            <span class="text-xs font-mono text-blue-400 px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20">LIVE 1s</span>
+          </div>
+          <div class="h-64 w-full">
+            <canvas id="throughputChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Protocol Distribution Chart -->
+        <div class="bg-dark-card border border-dark-border rounded-xl p-5 flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-2">
+            <div>
+              <h2 class="text-sm font-semibold text-white tracking-wide">DISTRIBUCIÓN DE PROTOCOLOS</h2>
+              <p class="text-xs text-slate-400">Participación de tráfico L4</p>
+            </div>
+            <i data-lucide="pie-chart" class="w-4 h-4 text-slate-400"></i>
+          </div>
+          <div class="h-48 flex items-center justify-center">
+            <canvas id="protocolChart"></canvas>
+          </div>
+          <div id="protocol-legend" class="grid grid-cols-3 gap-2 text-center text-xs mt-3 pt-3 border-t border-dark-border">
+            <div><span class="text-blue-400 font-bold font-mono">TCP</span><p id="leg-tcp" class="text-slate-400 text-[11px]">0%</p></div>
+            <div><span class="text-indigo-400 font-bold font-mono">UDP</span><p id="leg-udp" class="text-slate-400 text-[11px]">0%</p></div>
+            <div><span class="text-amber-400 font-bold font-mono">OTROS</span><p id="leg-other" class="text-slate-400 text-[11px]">0%</p></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RECENT ALERTS QUICK FEED -->
+      <div class="bg-dark-card border border-dark-border rounded-xl p-5">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <i data-lucide="flame" class="w-4 h-4 text-amber-400"></i>
+            <h2 class="text-sm font-semibold text-white">ÚLTIMOS INCIDENTES DETECTADOS EN RED</h2>
+          </div>
+          <button onclick="switchTab('incidents')" class="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
+            Ver todos <i data-lucide="arrow-right" class="w-3 h-3"></i>
+          </button>
+        </div>
+        <div id="overview-alerts-list" class="divide-y divide-dark-border overflow-hidden">
+          <div class="py-6 text-center text-xs text-slate-500">No hay alertas de seguridad recientes en este momento.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <!-- VIEW 2: TOP TALKERS -->
+    <!-- ============================================================= -->
+    <section id="view-talkers" class="hidden space-y-6">
+      <div class="bg-dark-card border border-dark-border rounded-xl p-5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+          <div>
+            <h2 class="text-base font-semibold text-white">Top Talkers de la Red</h2>
+            <p class="text-xs text-slate-400">Direcciones IP con mayor volumen de bytes y paquetes transferidos</p>
+          </div>
+          <button onclick="loadTopTalkers()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 border border-slate-700 flex items-center gap-2">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Actualizar Top Talkers
+          </button>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-900/70 text-slate-400 font-mono border-b border-dark-border">
+              <tr>
+                <th class="py-3 px-4">#</th>
+                <th class="py-3 px-4">DIRECCIÓN IP</th>
+                <th class="py-3 px-4">ENVIADOS</th>
+                <th class="py-3 px-4">RECIBIDOS</th>
+                <th class="py-3 px-4">VOLUMEN TOTAL</th>
+                <th class="py-3 px-4">PAQUETES</th>
+                <th class="py-3 px-4">FLUJOS</th>
+                <th class="py-3 px-4">PARTICIPACIÓN</th>
+              </tr>
+            </thead>
+            <tbody id="top-talkers-tbody" class="divide-y divide-dark-border font-mono">
+              <tr><td colspan="8" class="text-center py-8 text-slate-500">Cargando telemetría de Top Talkers...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <!-- VIEW 3: SECURITY INCIDENT CENTER -->
+    <!-- ============================================================= -->
+    <section id="view-incidents" class="hidden space-y-6">
+      <div class="bg-dark-card border border-dark-border rounded-xl p-5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
+          <div>
+            <h2 class="text-base font-semibold text-white">Centro de Respuesta a Incidentes (SIEM / NDR)</h2>
+            <p class="text-xs text-slate-400">Eventos de ciberseguridad detectados por heurísticas de red y algoritmos de Machine Learning</p>
+          </div>
+          <!-- FILTERS -->
+          <div class="flex flex-wrap items-center gap-2">
+            <select id="filter-severity" onchange="loadAlerts()" class="bg-slate-900 text-xs border border-dark-border rounded-lg px-3 py-1.5 text-slate-300 focus:outline-none focus:border-blue-500">
+              <option value="">Todas las Severidades</option>
+              <option value="CRITICAL">CRITICAL</option>
+              <option value="HIGH">HIGH</option>
+              <option value="MEDIUM">MEDIUM</option>
+              <option value="LOW">LOW</option>
+            </select>
+            <select id="filter-category" onchange="loadAlerts()" class="bg-slate-900 text-xs border border-dark-border rounded-lg px-3 py-1.5 text-slate-300 focus:outline-none focus:border-blue-500">
+              <option value="">Todas las Categorías</option>
+              <option value="PORT_SCAN">Port Scan</option>
+              <option value="SYN_FLOOD">SYN Flood</option>
+              <option value="EXFILTRATION">Exfiltración</option>
+              <option value="DNS_TUNNEL">DNS Tunnel</option>
+              <option value="MALICIOUS_C2">C2 Malicioso</option>
+              <option value="C2_BEACONING">C2 Beaconing (Jitter)</option>
+              <option value="ATTACK_CAMPAIGN">Campaña Kill Chain</option>
+              <option value="ANOMALY_ML">ML Anomaly</option>
+            </select>
+            <a href="/api/v1/alerts/export/cef" target="_blank" class="px-2.5 py-1.5 rounded-lg bg-indigo-950/60 hover:bg-indigo-900/80 text-xs font-mono text-indigo-300 border border-indigo-500/30 flex items-center gap-1.5 transition">
+              <i data-lucide="download" class="w-3.5 h-3.5"></i> Exportar CEF (SIEM)
+            </a>
+            <a href="/api/v1/alerts/export/syslog" target="_blank" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-mono text-slate-300 border border-slate-700 flex items-center gap-1.5 transition">
+              <i data-lucide="file-text" class="w-3.5 h-3.5"></i> Syslog RFC 5424
+            </a>
+            <a href="/api/v1/reports/executive/html" target="_blank" class="px-2.5 py-1.5 rounded-lg bg-blue-950/60 hover:bg-blue-900/80 text-xs font-mono text-blue-300 border border-blue-500/30 flex items-center gap-1.5 transition">
+              <i data-lucide="printer" class="w-3.5 h-3.5"></i> Reporte C-Level (Audit)
+            </a>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-900/70 text-slate-400 font-mono border-b border-dark-border">
+              <tr>
+                <th class="py-3 px-4">HORA UTC</th>
+                <th class="py-3 px-4">SEVERIDAD</th>
+                <th class="py-3 px-4">CATEGORÍA</th>
+                <th class="py-3 px-4">TÍTULO DEL INCIDENTE</th>
+                <th class="py-3 px-4">ORIGEN &bull; DESTINO</th>
+                <th class="py-3 px-4">CONFIANZA</th>
+                <th class="py-3 px-4">ESTADO</th>
+                <th class="py-3 px-4 text-right">ACCIONES</th>
+              </tr>
+            </thead>
+            <tbody id="incidents-tbody" class="divide-y divide-dark-border">
+              <tr><td colspan="8" class="text-center py-8 text-slate-500">Cargando incidentes...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <!-- VIEW 4: FORENSIC FLOW EXPLORER -->
+    <!-- ============================================================= -->
+    <section id="view-flows" class="hidden space-y-6">
+      <div class="bg-dark-card border border-dark-border rounded-xl p-5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+          <div>
+            <h2 class="text-base font-semibold text-white">Explorador Forense de Flujos (Wireshark Style)</h2>
+            <p class="text-xs text-slate-400">Inspección de datagramas y registros de flujo crudos</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-slate-400" id="flows-matched-count">0 flujos capturados</span>
+            <button onclick="loadFlows()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 border border-slate-700 flex items-center gap-2">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Actualizar
+            </button>
+          </div>
+        </div>
+
+        <!-- SEARCH BAR & FILTERS -->
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-4">
+          <input type="text" id="flow-src-ip" placeholder="Filtrar IP Origen..." onkeyup="if(event.key==='Enter') loadFlows()" class="bg-slate-900 border border-dark-border rounded-lg px-3 py-1.5 text-xs text-slate-300 font-mono focus:border-blue-500 focus:outline-none">
+          <input type="text" id="flow-dst-ip" placeholder="Filtrar IP Destino..." onkeyup="if(event.key==='Enter') loadFlows()" class="bg-slate-900 border border-dark-border rounded-lg px-3 py-1.5 text-xs text-slate-300 font-mono focus:border-blue-500 focus:outline-none">
+          <input type="number" id="flow-port" placeholder="Puerto (ej: 80, 443)..." onkeyup="if(event.key==='Enter') loadFlows()" class="bg-slate-900 border border-dark-border rounded-lg px-3 py-1.5 text-xs text-slate-300 font-mono focus:border-blue-500 focus:outline-none">
+          <button onclick="loadFlows()" class="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-1.5 text-xs font-medium flex items-center justify-center gap-2 transition">
+            <i data-lucide="search" class="w-3.5 h-3.5"></i> Buscar Flujos
+          </button>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs font-mono">
+            <thead class="bg-slate-900/70 text-slate-400 border-b border-dark-border">
+              <tr>
+                <th class="py-2.5 px-3">TIMESTAMP</th>
+                <th class="py-2.5 px-3">PROTOCOLO</th>
+                <th class="py-2.5 px-3">ORIGEN : PUERTO</th>
+                <th class="py-2.5 px-3">DESTINO : PUERTO</th>
+                <th class="py-2.5 px-3">PAQUETES</th>
+                <th class="py-2.5 px-3">BYTES</th>
+                <th class="py-2.5 px-3">TCP FLAGS</th>
+              </tr>
+            </thead>
+            <tbody id="flows-tbody" class="divide-y divide-dark-border">
+              <tr><td colspan="7" class="text-center py-8 text-slate-500">Esperando flujos en el bus de red...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <!-- VIEW 5: PURPLE TEAM (OMNIBREACH VS NOVAFLOW) -->
+    <!-- ============================================================= -->
+    <section id="view-purple" class="space-y-6 hidden">
+      <!-- HEADER BANNER -->
+      <div class="bg-gradient-to-r from-purple-950/40 via-dark-card to-blue-950/40 border border-purple-900/40 rounded-2xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+            <span class="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 text-[11px] font-mono font-bold border border-purple-500/30">PURPLE TEAM EXERCISE</span>
+            <span class="text-xs text-slate-400">Red Team DAST &bull; Blue Team NDR</span>
+          </div>
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            OmniBreach <span class="text-purple-400">&harr;</span> NovaFlow NDR
+          </h2>
+          <p class="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
+            Correlación en tiempo real entre ataques web/red generados por OmniBreach y la detección heurística, aprendizaje estadístico de flujos L3/L4 y mapeo MITRE ATT&CK de NovaFlow.
+          </p>
+        </div>
+        <div class="flex items-center gap-3">
+          <button onclick="runPurpleSimulation()" id="btn-run-purple" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-medium text-xs flex items-center gap-2 shadow-lg shadow-purple-950/50 transition">
+            <i data-lucide="play" class="w-4 h-4"></i> Simular Ataques OmniBreach
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI METRICS -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-dark-card border border-dark-border rounded-xl p-4">
+          <span class="text-slate-400 text-xs block">VECTORES OFENSIVOS DAST</span>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span id="purple-stat-total" class="text-2xl font-bold font-mono text-white">4</span>
+            <span class="text-xs text-purple-400">simulados</span>
+          </div>
+          <div class="text-[11px] text-slate-400 mt-1">Recon, Exfil, DoS, C2</div>
+        </div>
+
+        <div class="bg-dark-card border border-dark-border rounded-xl p-4">
+          <span class="text-slate-400 text-xs block">ALERTAS GENERADAS (BLUE TEAM)</span>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span id="purple-stat-detected" class="text-2xl font-bold font-mono text-emerald-400">4</span>
+            <span class="text-xs text-slate-400">/ 4</span>
+          </div>
+          <div class="text-[11px] text-emerald-400 mt-1">100% de correlación</div>
+        </div>
+
+        <div class="bg-dark-card border border-dark-border rounded-xl p-4">
+          <span class="text-slate-400 text-xs block">EFICACIA DE DETECCIÓN</span>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span id="purple-stat-rate" class="text-2xl font-bold font-mono text-emerald-400">100.0%</span>
+          </div>
+          <div class="text-[11px] text-slate-400 mt-1">Cero falsos negativos</div>
+        </div>
+
+        <div class="bg-dark-card border border-dark-border rounded-xl p-4">
+          <span class="text-slate-400 text-xs block">FORMATO DE EXPORTACIÓN SIEM</span>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span class="text-lg font-bold font-mono text-blue-400">ArcSight CEF</span>
+          </div>
+          <div class="text-[11px] text-slate-400 mt-1">RFC 5424 Syslog ready</div>
+        </div>
+      </div>
+
+      <!-- CORRELATION MATRIX TABLE -->
+      <div class="bg-dark-card border border-dark-border rounded-xl overflow-hidden">
+        <div class="p-4 border-b border-dark-border flex items-center justify-between">
+          <div>
+            <h3 class="text-sm font-semibold text-white">Matriz de Correlación MITRE ATT&CK</h3>
+            <p class="text-xs text-slate-400">Vectores de ataque de OmniBreach mapeados con reglas defensivas de NovaFlow</p>
+          </div>
+          <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-xs border border-emerald-500/30">Activo</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-900/60 text-slate-400 font-mono text-[11px] uppercase border-b border-dark-border">
+              <tr>
+                <th class="py-3 px-4">Vector ID</th>
+                <th class="py-3 px-4">Ataque OmniBreach</th>
+                <th class="py-3 px-4">Capa L3/L4</th>
+                <th class="py-3 px-4">Detector NovaFlow</th>
+                <th class="py-3 px-4">Técnica MITRE</th>
+                <th class="py-3 px-4">Severidad</th>
+                <th class="py-3 px-4">Estado</th>
+              </tr>
+            </thead>
+            <tbody id="purple-tbody" class="divide-y divide-dark-border">
+              <tr><td colspan="7" class="text-center py-6 text-slate-500">Cargando matriz Purple Team...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- LIVE LOG CEF TERMINAL -->
+      <div class="bg-dark-card border border-dark-border rounded-xl overflow-hidden">
+        <div class="p-4 border-b border-dark-border flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <i data-lucide="terminal" class="w-4 h-4 text-purple-400"></i>
+            <h3 class="text-sm font-semibold text-white">Registro Forense SIEM (CEF / RFC 5424)</h3>
+          </div>
+          <span class="text-[11px] font-mono text-slate-400">ArcSight Common Event Format</span>
+        </div>
+        <pre id="purple-cef-terminal" class="p-4 bg-slate-950 font-mono text-xs text-purple-300 overflow-x-auto leading-relaxed max-h-60 custom-scrollbar">// Esperando ejecución de vectores Purple Team...</pre>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <!-- VIEW 6: MITRE ATT&CK HEATMAP & MATRIX -->
+    <!-- ============================================================= -->
+    <section id="view-mitre" class="space-y-6 hidden">
+      <!-- HEADER CARD -->
+      <div class="bg-dark-card border border-dark-border rounded-xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 class="text-lg font-bold text-white tracking-wide">Matriz MITRE ATT&CK® & Heatmap Táctico</h2>
+            <span id="mitre-threat-status" class="px-2.5 py-0.5 rounded text-[11px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">MONITOREANDO</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-1 max-w-3xl">
+            Mapeo formal de amenazas e intrusiones de red contra la taxonomía MITRE ATT&CK for Enterprise.
+            La escala de calor responde dinámicamente a la frecuencia y severidad de las técnicas observadas en los flujos L3/L4.
+          </p>
+        </div>
+        <div class="flex items-center gap-4 text-xs font-mono">
+          <div class="bg-slate-900/80 px-3 py-2 rounded-lg border border-dark-border flex items-center gap-3">
+            <span class="text-slate-400">TÉCNICAS ALERTADAS:</span>
+            <span id="mitre-stat-active-count" class="text-base font-bold text-white">0</span>
+          </div>
+          <div class="flex items-center gap-2 text-[11px]">
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-slate-700"></span> Inactivo</span>
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-400"></span> Medio</span>
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-orange-500"></span> Alto</span>
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span> Crítico</span>
+          </div>
+          <a href="/api/v1/mitre/navigator-layer.json" target="_blank" download="novaflow_mitre_navigator.json" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 text-xs font-medium transition" title="Descargar capa oficial para MITRE ATT&CK Navigator">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span>Exportar Navigator (.json)</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- MATRIX HEATMAP GRID -->
+      <div class="bg-dark-card border border-dark-border rounded-xl p-5 overflow-x-auto">
+        <h3 class="text-xs font-mono uppercase text-slate-400 mb-4 flex items-center gap-2">
+          <i data-lucide="layers" class="w-4 h-4 text-blue-400"></i>
+          Distribución Térmica por Tácticas y Técnicas
+        </h3>
+        <div id="mitre-grid-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="p-6 text-center text-slate-500 text-xs col-span-full">Cargando matriz MITRE ATT&CK...</div>
+        </div>
+      </div>
+
+      <!-- TECHNIQUE DETAIL DRILL-DOWN CONTAINER -->
+      <div id="mitre-drilldown-container" class="bg-dark-card border border-dark-border rounded-xl p-5 hidden">
+        <div class="flex items-center justify-between border-b border-dark-border pb-3 mb-4">
+          <div class="flex items-center gap-3">
+            <div id="drilldown-badge" class="px-2.5 py-1 rounded bg-blue-600/20 text-blue-400 border border-blue-500/30 font-mono text-xs font-bold">T1021</div>
+            <div>
+              <h4 id="drilldown-title" class="text-sm font-bold text-white">Remote Services</h4>
+              <p id="drilldown-tactic" class="text-[11px] text-slate-400 font-mono">Táctica: Lateral Movement</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <a id="drilldown-mitre-url" href="#" target="_blank" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium flex items-center gap-1 border border-slate-700 transition">
+              <i data-lucide="external-link" class="w-3.5 h-3.5"></i> MITRE ATT&CK Docs
+            </a>
+            <button onclick="closeMitreDrilldown()" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition">
+              <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="space-y-3">
+          <h5 class="text-xs font-mono uppercase text-slate-400">Incidentes Correlacionados con esta Técnica:</h5>
+          <div id="drilldown-alerts-list" class="space-y-2">
+            <!-- Dinámicamente poblado -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <!-- VIEW 7: ATTACK GRAPH & BLAST RADIUS (CYTOSCAPE.JS) -->
+    <!-- ============================================================= -->
+    <section id="view-graph" class="space-y-6 hidden">
+      <!-- HEADER CARD -->
+      <div class="bg-dark-card border border-dark-border rounded-xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 class="text-lg font-bold text-white tracking-wide">Grafo de Ataque, Blast Radius & Patient Zero</h2>
+            <span id="graph-status-badge" class="px-2.5 py-0.5 rounded text-[11px] font-mono font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">TOPOLOGÍA ACTIVA</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-1 max-w-3xl">
+            Modelado causal en tiempo real G = (V, E) de hosts, movimientos laterales e indicadores de comando y control (C2).
+            Permite trazar el vector de origen ("Patient Zero") y el radio de explosión potencial de activos comprometidos.
+          </p>
+        </div>
+        <div class="flex items-center gap-4 text-xs font-mono">
+          <div class="bg-slate-900/80 px-3 py-2 rounded-lg border border-dark-border flex items-center gap-3">
+            <span class="text-slate-400">NODOS:</span>
+            <span id="graph-stat-nodes" class="text-base font-bold text-white">0</span>
+            <span class="text-slate-600">|</span>
+            <span class="text-slate-400">ARISTAS:</span>
+            <span id="graph-stat-edges" class="text-base font-bold text-cyan-400">0</span>
+            <span class="text-slate-600">|</span>
+            <span class="text-slate-400">COMPROMETIDOS:</span>
+            <span id="graph-stat-compromised" class="text-base font-bold text-rose-400">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- CONTROLS TOOLBAR -->
+      <div class="bg-dark-card border border-dark-border rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div class="flex items-center gap-3">
+          <label class="flex items-center gap-2 cursor-pointer text-slate-300 select-none">
+            <input type="checkbox" id="graph-filter-compromised" onchange="loadGraphTopology()" class="rounded border-slate-700 bg-slate-900 text-blue-600 focus:ring-0">
+            <span>Solo Nodos Comprometidos</span>
+          </label>
+          <div class="h-4 w-px bg-dark-border"></div>
+          <div class="flex items-center gap-2">
+            <span class="text-slate-400">Disposición:</span>
+            <select id="graph-layout-select" onchange="applyGraphLayout()" class="bg-slate-900 text-slate-200 border border-dark-border rounded px-2 py-1 font-mono text-xs">
+              <option value="cose">Force-Directed (CoSE)</option>
+              <option value="concentric">Concéntrico (Criticidad)</option>
+              <option value="circle">Circular</option>
+              <option value="grid">Cuadrícula</option>
+            </select>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="fitGraphView()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-1.5">
+            <i data-lucide="maximize" class="w-3.5 h-3.5"></i> Centrar
+          </button>
+          <button onclick="loadGraphTopology()" class="px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 transition flex items-center gap-1.5">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Recargar Topología
+          </button>
+        </div>
+      </div>
+
+      <!-- GRAPH CANVAS & INSPECTOR SPLIT -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Canvas Cytoscape (2 cols) -->
+        <div class="lg:col-span-2 bg-slate-950 border border-dark-border rounded-xl relative overflow-hidden flex flex-col" style="min-height: 600px;">
+          <div id="cytoscape-canvas" class="w-full h-full absolute inset-0"></div>
+          <!-- Legend Overlay -->
+          <div class="absolute bottom-3 left-3 bg-dark-card/90 backdrop-blur border border-dark-border rounded-lg p-2.5 text-[11px] font-mono space-y-1 z-10 pointer-events-none">
+            <div class="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Leyenda Topológica</div>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span> Host Limpio / Workstation</div>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-rose-500 inline-block"></span> Host Comprometido</div>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span> Servidor Crítico / DC</div>
+            <div class="flex items-center gap-2"><span class="w-4 h-0.5 bg-rose-500 inline-block"></span> Movimiento Lateral / C2</div>
+          </div>
+        </div>
+
+        <!-- Node & Threat Inspector (1 col) -->
+        <div class="bg-dark-card border border-dark-border rounded-xl p-5 space-y-4">
+          <div class="flex items-center justify-between border-b border-dark-border pb-3">
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              <i data-lucide="info" class="w-4 h-4 text-cyan-400"></i> Inspector de Activo
+            </h3>
+            <span id="inspector-status-tag" class="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-400 border border-slate-700">Seleccionar Nodo</span>
+          </div>
+
+          <!-- Empty State -->
+          <div id="inspector-empty-state" class="py-12 text-center text-slate-500 text-xs space-y-2">
+            <i data-lucide="mouse-pointer-click" class="w-8 h-8 mx-auto text-slate-600 mb-2"></i>
+            <p>Haz clic en cualquier nodo del grafo para ver su perfil de riesgo, blast radius y traza causal de infección.</p>
+          </div>
+
+          <!-- Detailed State -->
+          <div id="inspector-details" class="space-y-4 hidden text-xs">
+            <div class="bg-slate-900 p-3 rounded-lg border border-dark-border space-y-2">
+              <div class="flex justify-between items-baseline">
+                <span class="text-slate-400 font-mono text-[11px]">IP / ACTIVO:</span>
+                <span id="inspector-ip" class="font-mono font-bold text-white text-sm"></span>
+              </div>
+              <div class="flex justify-between items-baseline">
+                <span class="text-slate-400 font-mono text-[11px]">ROL ASIGNADO:</span>
+                <span id="inspector-role" class="font-mono text-cyan-300"></span>
+              </div>
+              <div class="flex justify-between items-baseline">
+                <span class="text-slate-400 font-mono text-[11px]">ESTADO:</span>
+                <span id="inspector-compromised" class="font-mono font-bold"></span>
+              </div>
+              <div class="flex justify-between items-baseline">
+                <span class="text-slate-400 font-mono text-[11px]">SCORE RIESGO BASE:</span>
+                <span id="inspector-risk-score" class="font-mono font-bold text-amber-400"></span>
+              </div>
+              <div class="flex justify-between items-baseline">
+                <span class="text-slate-400 font-mono text-[11px]">CONEXIONES (IN / OUT):</span>
+                <span id="inspector-degrees" class="font-mono text-slate-300"></span>
+              </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="grid grid-cols-2 gap-2">
+              <button onclick="inspectBlastRadius()" class="px-3 py-2 rounded-lg bg-orange-600/20 hover:bg-orange-600/30 text-orange-400 border border-orange-500/30 font-medium transition flex items-center justify-center gap-1.5">
+                <i data-lucide="flame" class="w-3.5 h-3.5"></i> Blast Radius
+              </button>
+              <button onclick="inspectPatientZero()" class="px-3 py-2 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30 font-medium transition flex items-center justify-center gap-1.5">
+                <i data-lucide="crosshair" class="w-3.5 h-3.5"></i> Patient Zero
+              </button>
+            </div>
+
+            <!-- Blast Radius Results Panel -->
+            <div id="inspector-blast-panel" class="bg-slate-900 p-3 rounded-lg border border-dark-border space-y-3 hidden">
+              <div class="flex items-center justify-between">
+                <span class="text-slate-400 font-mono text-[11px] uppercase">Radio de Explosión</span>
+                <span id="blast-score-badge" class="font-mono font-bold text-xs px-2 py-0.5 rounded"></span>
+              </div>
+              <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                <div id="blast-score-bar" class="h-2 rounded-full bg-orange-500 transition-all duration-500" style="width: 0%"></div>
+              </div>
+              <div class="text-[11px] text-slate-300 space-y-1 font-mono">
+                <div class="flex justify-between"><span>Hosts Alcanzables:</span> <span id="blast-reachable-count" class="font-bold text-white">0</span></div>
+                <div class="flex justify-between"><span>Activos Críticos Expuestos:</span> <span id="blast-critical-count" class="font-bold text-rose-400">0</span></div>
+              </div>
+              <div id="blast-critical-list" class="space-y-1 max-h-32 overflow-y-auto custom-scrollbar pt-1 border-t border-slate-800"></div>
+            </div>
+
+            <!-- Patient Zero Results Panel -->
+            <div id="inspector-pzero-panel" class="bg-slate-900 p-3 rounded-lg border border-dark-border space-y-2.5 hidden">
+              <div class="flex items-center justify-between">
+                <span class="text-slate-400 font-mono text-[11px] uppercase">Origen Causal (Patient Zero)</span>
+                <span id="pzero-badge" class="font-mono font-bold text-xs text-rose-400 bg-rose-500/20 px-2 py-0.5 rounded border border-rose-500/30">ORIGEN IDENTIFICADO</span>
+              </div>
+              <div class="bg-slate-950 p-2.5 rounded border border-slate-800 space-y-1 text-[11px] font-mono">
+                <div><span class="text-slate-500">Paciente Cero:</span> <span id="pzero-root-ip" class="font-bold text-rose-300"></span></div>
+                <div><span class="text-slate-500">Vector de Entrada:</span> <span id="pzero-vector" class="text-slate-300"></span></div>
+                <div><span class="text-slate-500">Saltos hasta Destino:</span> <span id="pzero-hops" class="text-slate-300"></span></div>
+              </div>
+              <div class="text-[10px] text-slate-400">Ruta Causal Resaltada:</div>
+              <div id="pzero-path-display" class="font-mono text-[11px] text-cyan-300 bg-slate-950 p-2 rounded border border-slate-800 break-words"></div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODAL: DETALLE FORENSE DEL INCIDENTE -->
+  <div id="incident-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center hidden">
+    <div class="bg-dark-card border border-dark-border rounded-2xl max-w-2xl w-full mx-4 overflow-hidden shadow-2xl">
+      <div class="p-5 border-b border-dark-border flex items-center justify-between bg-slate-900/50">
+        <div class="flex items-center gap-3">
+          <div id="modal-severity-icon" class="p-2 rounded-lg bg-rose-500/20 text-rose-400">
+            <i data-lucide="shield-alert" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 id="modal-title" class="text-sm font-bold text-white">Detalle Forense del Incidente</h3>
+            <p id="modal-category" class="text-xs text-slate-400 font-mono">CATEGORY</p>
+          </div>
+        </div>
+        <button onclick="closeIncidentModal()" class="text-slate-400 hover:text-white p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar text-xs">
+        <div>
+          <label class="text-slate-400 text-[11px] block uppercase font-mono">Descripción Forense</label>
+          <p id="modal-description" class="text-slate-200 mt-1 bg-slate-900 p-3 rounded-lg border border-dark-border font-sans leading-relaxed"></p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div class="bg-slate-900 p-3 rounded-lg border border-dark-border">
+            <span class="text-slate-400 text-[11px] block uppercase font-mono">Host Origen</span>
+            <span id="modal-src-ip" class="font-mono text-white text-sm font-semibold"></span>
+          </div>
+          <div class="bg-slate-900 p-3 rounded-lg border border-dark-border">
+            <span class="text-slate-400 text-[11px] block uppercase font-mono">Host Destino / Servicio</span>
+            <span id="modal-dst-ip" class="font-mono text-white text-sm font-semibold"></span>
+          </div>
+        </div>
+
+        <!-- Mapeo MITRE ATT&CK -->
+        <div id="modal-mitre-container" class="bg-indigo-950/30 border border-indigo-500/30 p-3 rounded-lg flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <span class="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono text-[11px] font-bold border border-indigo-500/30" id="modal-mitre-id">T1046</span>
+            <div>
+              <span id="modal-mitre-name" class="text-white font-semibold text-xs block">Técnica MITRE ATT&CK</span>
+              <span id="modal-mitre-tactic" class="text-slate-400 text-[11px]">Táctica</span>
+            </div>
+          </div>
+          <a id="modal-mitre-link" href="#" target="_blank" class="text-indigo-400 hover:text-indigo-300 flex items-center gap-1 text-[11px] font-mono">
+            Ver en ATT&CK &rarr;
+          </a>
+        </div>
+
+        <!-- Mapeo de Cumplimiento Regulatorio Corporativo -->
+        <div id="modal-compliance-container" class="space-y-1.5">
+          <label class="text-slate-400 text-[11px] block uppercase font-mono">Cumplimiento Regulatorio (PCI-DSS &bull; ISO 27001 &bull; NIST CSF)</label>
+          <div id="modal-compliance-list" class="grid grid-cols-1 sm:grid-cols-3 gap-2"></div>
+        </div>
+
+        <!-- Cadena de Custodia Forense DFIR & PCAP Dump -->
+        <div class="bg-slate-900/80 p-3 rounded-lg border border-dark-border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div class="space-y-0.5">
+            <span class="text-slate-400 text-[11px] block uppercase font-mono">Evidencia Digital Forense (DFIR)</span>
+            <span id="modal-evidence-hash" class="font-mono text-[10px] text-slate-300 block truncate max-w-sm">SHA-256: Generando firma inmutable...</span>
+          </div>
+          <a id="modal-pcap-download" href="#" target="_blank" class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs flex items-center gap-1.5 transition whitespace-nowrap">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i> Descargar .PCAP (Wireshark)
+          </a>
+        </div>
+
+        <!-- Playbook de Mitigación Activa / SOAR -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="text-slate-400 text-[11px] uppercase font-mono">Playbook de Mitigación Activa (SOAR)</label>
+            <span id="modal-playbook-target" class="text-[11px] font-mono text-rose-400 font-semibold"></span>
+          </div>
+          <div class="flex gap-1 border-b border-dark-border pb-1 overflow-x-auto" id="modal-playbook-tabs"></div>
+          <div class="relative">
+            <pre id="modal-playbook-code" class="bg-slate-950 p-3 rounded-lg font-mono text-amber-300 border border-slate-800 text-[11px] overflow-x-auto leading-relaxed"></pre>
+            <button onclick="copyCurrentPlaybookCommand()" class="absolute top-2 right-2 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-[10px] rounded text-slate-300 border border-slate-700 transition">
+              Copiar
+            </button>
+          </div>
+          <div id="modal-playbook-explanation" class="text-[11px] text-slate-400 leading-normal"></div>
+        </div>
+
+        <div>
+          <label class="text-slate-400 text-[11px] block uppercase font-mono mb-1">Métricas y Telemetría del Ataque</label>
+          <pre id="modal-metrics" class="bg-slate-950 p-3 rounded-lg font-mono text-emerald-400 border border-slate-800 text-[11px] overflow-x-auto"></pre>
+        </div>
+
+        <div class="flex items-center justify-between pt-2 border-t border-dark-border">
+          <span class="text-slate-400">Triaje Operativo:</span>
+          <div class="flex gap-2">
+            <button onclick="updateAlertState('INVESTIGATING')" class="px-3 py-1.5 rounded-lg bg-amber-600/20 text-amber-300 border border-amber-500/30 hover:bg-amber-600/30 transition">Investigando</button>
+            <button onclick="updateAlertState('RESOLVED')" class="px-3 py-1.5 rounded-lg bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-600/30 transition">Resolver</button>
+            <button onclick="updateAlertState('FALSE_POSITIVE')" class="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition">Falso Positivo</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT APP LOGIC -->
+  <script>
+    // --- ESTADO GLOBAL CLIENTE ---
+    let currentTab = 'overview';
+    let currentModalAlertId = null;
+    let currentPlaybookRules = [];
+    let currentSelectedPlaybookIndex = 0;
+    let ws = null;
+    let throughputChart = null;
+    let protocolChart = null;
+    const maxChartPoints = 30;
+
+    // --- CHART INITIALIZATION ---
+    function initCharts() {
+      // 1. Line Chart: Throughput
+      const ctxThroughput = document.getElementById('throughputChart').getContext('2d');
+      throughputChart = new Chart(ctxThroughput, {
+        type: 'line',
+        data: {
+          labels: Array(maxChartPoints).fill(''),
+          datasets: [{
+            label: 'Throughput (Mbps)',
+            data: Array(maxChartPoints).fill(0),
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.35,
+            pointRadius: 0,
+            pointHitRadius: 10,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          scales: {
+            x: { display: false },
+            y: {
+              beginAtZero: true,
+              grid: { color: '#1e293b' },
+              ticks: { color: '#94a3b8', font: { family: 'monospace', size: 10 } }
+            }
+          },
+          plugins: {
+            legend: { display: false }
+          }
+        }
+      });
+
+      // 2. Doughnut Chart: Protocols
+      const ctxProtocol = document.getElementById('protocolChart').getContext('2d');
+      protocolChart = new Chart(ctxProtocol, {
+        type: 'doughnut',
+        data: {
+          labels: ['TCP', 'UDP', 'OTROS'],
+          datasets: [{
+            data: [70, 25, 5],
+            backgroundColor: ['#3b82f6', '#6366f1', '#f59e0b'],
+            borderWidth: 0,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '72%',
+          plugins: {
+            legend: { display: false }
+          }
+        }
+      });
+    }
+
+    // --- WEBSOCKET CONNECTION ---
+    function connectWebSocket() {
+      const loc = window.location;
+      const wsProtocol = loc.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${wsProtocol}//${loc.host}/ws/stream`;
+
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        document.getElementById('ws-badge').className = "flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30";
+        document.getElementById('ws-text').textContent = "TELEMETRÍA EN VIVO";
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.type === 'NETWORK_PULSE') {
+            handleNetworkPulse(msg.data);
+          } else if (msg.type === 'SECURITY_ALERT') {
+            handleSecurityAlert(msg.data);
+          }
+        } catch (e) {}
+      };
+
+      ws.onclose = () => {
+        document.getElementById('ws-badge').className = "flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/30";
+        document.getElementById('ws-text').textContent = "RECONECTANDO...";
+        setTimeout(connectWebSocket, 3000);
+      };
+    }
+
+    function handleNetworkPulse(data) {
+      document.getElementById('stat-mbps').textContent = data.mbps.toFixed(2);
+      document.getElementById('stat-pps').textContent = data.pps.toLocaleString();
+      document.getElementById('stat-fps').textContent = data.fps.toLocaleString();
+      document.getElementById('stat-total-flows').textContent = data.total_flows.toLocaleString();
+      document.getElementById('stat-alerts').textContent = data.total_alerts;
+      document.getElementById('incidents-badge').textContent = data.total_alerts;
+
+      // Update Chart
+      if (throughputChart) {
+        const dataset = throughputChart.data.datasets[0].data;
+        dataset.shift();
+        dataset.push(data.mbps);
+        throughputChart.update();
+      }
+    }
+
+    function handleSecurityAlert(alert) {
+      showToast(alert);
+      loadOverviewMetrics();
+      if (currentTab === 'incidents') {
+        loadAlerts();
+      }
+    }
+
+    function showToast(alert) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `p-4 rounded-xl border shadow-xl bg-slate-900/95 backdrop-blur max-w-sm pointer-events-auto flex items-start gap-3 transition-all duration-300 transform translate-y-0 ${
+        alert.severity === 'CRITICAL' ? 'border-rose-500/60 text-rose-200' : 'border-amber-500/60 text-amber-200'
+      }`;
+      toast.innerHTML = `
+        <i data-lucide="shield-alert" class="w-5 h-5 flex-shrink-0 mt-0.5 ${alert.severity === 'CRITICAL' ? 'text-rose-400' : 'text-amber-400'}"></i>
+        <div class="flex-1 text-xs">
+          <div class="flex items-center justify-between font-bold text-white mb-0.5">
+            <span>[${alert.severity}] ${alert.category}</span>
+            <span class="text-[10px] opacity-75 font-mono">${new Date().toLocaleTimeString()}</span>
+          </div>
+          <p class="text-slate-300 leading-snug">${alert.title}</p>
+        </div>
+      `;
+      container.appendChild(toast);
+      lucide.createIcons();
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+      }, 5000);
+    }
+
+    // --- REST FETCH FUNCTIONS ---
+    async function loadOverviewMetrics() {
+      try {
+        const res = await fetch('/api/v1/metrics/overview');
+        const data = await res.json();
+        
+        document.getElementById('stat-total-flows').textContent = data.stats.total_flows_analyzed.toLocaleString();
+        document.getElementById('stat-alerts').textContent = data.stats.total_alerts;
+        document.getElementById('incidents-badge').textContent = data.stats.total_alerts;
+        
+        const critCount = (data.stats.severity_breakdown && data.stats.severity_breakdown.CRITICAL) || 0;
+        document.getElementById('stat-critical-badge').textContent = `${critCount} CRIT`;
+
+        // Protocols
+        const protoRes = await fetch('/api/v1/metrics/protocols');
+        const protocols = await protoRes.json();
+        let tcpPct = 0, udpPct = 0, otherPct = 0;
+        protocols.forEach(p => {
+          if (p.protocol === 'TCP') tcpPct = p.percentage;
+          else if (p.protocol === 'UDP') udpPct = p.percentage;
+          else otherPct += p.percentage;
+        });
+        document.getElementById('leg-tcp').textContent = `${tcpPct}%`;
+        document.getElementById('leg-udp').textContent = `${udpPct}%`;
+        document.getElementById('leg-other').textContent = `${otherPct}%`;
+        if (protocolChart && protocols.length) {
+          protocolChart.data.datasets[0].data = [tcpPct, udpPct, otherPct];
+          protocolChart.update();
+        }
+
+        // Recent alerts list
+        const alertsRes = await fetch('/api/v1/alerts?limit=4');
+        const alertsData = await alertsRes.json();
+        const listDiv = document.getElementById('overview-alerts-list');
+        if (alertsData.alerts && alertsData.alerts.length > 0) {
+          listDiv.innerHTML = alertsData.alerts.map(a => `
+            <div class="py-3 flex items-center justify-between text-xs hover:bg-slate-900/50 px-2 rounded cursor-pointer" onclick="openIncidentModal('${a.alert_id}')">
+              <div class="flex items-center gap-3">
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                  a.severity === 'CRITICAL' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' :
+                  a.severity === 'HIGH' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30' :
+                  'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                }">${a.severity}</span>
+                <div>
+                  <div class="font-medium text-white">${a.title}</div>
+                  <div class="text-[11px] text-slate-400 font-mono">${a.src_ip} &rarr; ${a.dst_ip}:${a.dst_port}</div>
+                </div>
+              </div>
+              <div class="text-right">
+                <span class="text-slate-400 font-mono text-[11px]">${new Date(a.timestamp).toLocaleTimeString()}</span>
+              </div>
+            </div>
+          `).join('');
+        } else {
+          listDiv.innerHTML = '<div class="py-6 text-center text-xs text-slate-500">No hay alertas activas en este momento.</div>';
+        }
+
+      } catch (e) {}
+    }
+
+    async function loadTopTalkers() {
+      try {
+        const res = await fetch('/api/v1/metrics/top-talkers?limit=10');
+        const talkers = await res.json();
+        const tbody = document.getElementById('top-talkers-tbody');
+        if (!talkers || talkers.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="8" class="text-center py-6 text-slate-500">Aún no hay flujos registrados para calcular Top Talkers.</td></tr>';
+          return;
+        }
+
+        const maxBytes = Math.max(...talkers.map(t => t.total_bytes), 1);
+        tbody.innerHTML = talkers.map((t, idx) => {
+          const pct = ((t.total_bytes / maxBytes) * 100).toFixed(1);
+          return `
+            <tr class="hover:bg-slate-900/50 transition">
+              <td class="py-3 px-4 text-slate-500">${idx + 1}</td>
+              <td class="py-3 px-4 font-bold text-blue-400">${t.ip}</td>
+              <td class="py-3 px-4 text-slate-300">${formatBytes(t.bytes_sent)}</td>
+              <td class="py-3 px-4 text-slate-300">${formatBytes(t.bytes_received)}</td>
+              <td class="py-3 px-4 font-bold text-white">${t.total_mb} MB</td>
+              <td class="py-3 px-4 text-slate-400">${t.packets.toLocaleString()}</td>
+              <td class="py-3 px-4 text-slate-400">${t.flow_count.toLocaleString()}</td>
+              <td class="py-3 px-4">
+                <div class="w-24 bg-slate-800 rounded-full h-2 overflow-hidden">
+                  <div class="bg-blue-500 h-2 rounded-full" style="width: ${pct}%"></div>
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch (e) {}
+    }
+
+    async function loadAlerts() {
+      try {
+        const sev = document.getElementById('filter-severity').value;
+        const cat = document.getElementById('filter-category').value;
+        let url = '/api/v1/alerts?limit=100';
+        if (sev) url += `&severity=${sev}`;
+        if (cat) url += `&category=${cat}`;
+
+        const res = await fetch(url);
+        const data = await res.json();
+        const tbody = document.getElementById('incidents-tbody');
+
+        if (!data.alerts || data.alerts.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-slate-500">No se encontraron alertas con los filtros seleccionados.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = data.alerts.map(a => `
+          <tr class="hover:bg-slate-900/50 transition cursor-pointer" onclick="openIncidentModal('${a.alert_id}')">
+            <td class="py-3 px-4 font-mono text-slate-400">${new Date(a.timestamp).toLocaleTimeString()}</td>
+            <td class="py-3 px-4">
+              <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                a.severity === 'CRITICAL' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' :
+                a.severity === 'HIGH' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30' :
+                'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+              }">${a.severity}</span>
+            </td>
+            <td class="py-3 px-4 font-mono text-slate-300 font-semibold">${a.category}</td>
+            <td class="py-3 px-4 font-medium text-white">${a.title}</td>
+            <td class="py-3 px-4 font-mono text-slate-400">${a.src_ip} &rarr; ${a.dst_ip}:${a.dst_port}</td>
+            <td class="py-3 px-4 font-mono text-emerald-400">${(a.confidence * 100).toFixed(0)}%</td>
+            <td class="py-3 px-4">
+              <span class="px-2 py-0.5 rounded text-[10px] font-mono ${
+                a.status === 'RESOLVED' ? 'bg-emerald-500/20 text-emerald-300' :
+                a.status === 'INVESTIGATING' ? 'bg-amber-500/20 text-amber-300' :
+                'bg-slate-800 text-slate-300'
+              }">${a.status}</span>
+            </td>
+            <td class="py-3 px-4 text-right">
+              <button class="text-blue-400 hover:text-blue-300 font-medium">Detalle &rarr;</button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (e) {}
+    }
+
+    async function loadFlows() {
+      try {
+        const src = document.getElementById('flow-src-ip').value.trim();
+        const dst = document.getElementById('flow-dst-ip').value.trim();
+        const port = document.getElementById('flow-port').value.trim();
+
+        let url = '/api/v1/flows?limit=100';
+        if (src) url += `&src_ip=${src}`;
+        if (dst) url += `&dst_ip=${dst}`;
+        if (port) url += `&port=${port}`;
+
+        const res = await fetch(url);
+        const data = await res.json();
+        document.getElementById('flows-matched-count').textContent = `${data.total_matched} flujos encontrados`;
+
+        const tbody = document.getElementById('flows-tbody');
+        if (!data.flows || data.flows.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-slate-500">No se encontraron flujos coincidentes.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = data.flows.map(f => {
+          let flagsBadges = [];
+          if (f.tcp_flags & 0x02) flagsBadges.push('<span class="bg-rose-500/20 text-rose-300 px-1 rounded">SYN</span>');
+          if (f.tcp_flags & 0x10) flagsBadges.push('<span class="bg-blue-500/20 text-blue-300 px-1 rounded">ACK</span>');
+          if (f.tcp_flags & 0x08) flagsBadges.push('<span class="bg-amber-500/20 text-amber-300 px-1 rounded">PSH</span>');
+          if (f.tcp_flags & 0x04) flagsBadges.push('<span class="bg-red-500/30 text-red-300 px-1 rounded">RST</span>');
+
+          return `
+            <tr class="hover:bg-slate-900/50 transition">
+              <td class="py-2.5 px-3 text-slate-400">${new Date(f.timestamp).toLocaleTimeString()}</td>
+              <td class="py-2.5 px-3 font-bold ${f.protocol_name === 'TCP' ? 'text-blue-400' : 'text-indigo-400'}">${f.protocol_name}</td>
+              <td class="py-2.5 px-3 text-white">${f.src_ip}:${f.src_port}</td>
+              <td class="py-2.5 px-3 text-white">${f.dst_ip}:${f.dst_port}</td>
+              <td class="py-2.5 px-3 text-slate-300">${f.packets.toLocaleString()}</td>
+              <td class="py-2.5 px-3 text-slate-300">${formatBytes(f.bytes)}</td>
+              <td class="py-2.5 px-3 flex gap-1">${flagsBadges.join('') || '<span class="text-slate-600">-</span>'}</td>
+            </tr>
+          `;
+        }).join('');
+      } catch (e) {}
+    }
+
+    // --- MODAL FORENSE ---
+    async function openIncidentModal(alertId) {
+      currentModalAlertId = alertId;
+      try {
+        const res = await fetch(`/api/v1/alerts/${alertId}`);
+        const alert = await res.json();
+
+        document.getElementById('modal-title').textContent = alert.title;
+        document.getElementById('modal-category').textContent = `${alert.category} &bull; Severidad: ${alert.severity} &bull; Confianza: ${(alert.confidence * 100).toFixed(0)}%`;
+        document.getElementById('modal-description').textContent = alert.description;
+        document.getElementById('modal-src-ip').textContent = alert.src_ip;
+        document.getElementById('modal-dst-ip').textContent = `${alert.dst_ip}:${alert.dst_port}`;
+        document.getElementById('modal-metrics').textContent = JSON.stringify(alert.metrics, null, 2);
+
+        // MITRE ATT&CK Mapping
+        const mitreCont = document.getElementById('modal-mitre-container');
+        if (alert.mitre) {
+          mitreCont.classList.remove('hidden');
+          document.getElementById('modal-mitre-id').textContent = alert.mitre.technique_id;
+          document.getElementById('modal-mitre-name').textContent = alert.mitre.technique_name;
+          document.getElementById('modal-mitre-tactic').textContent = `Táctica: ${alert.mitre.tactic}`;
+          document.getElementById('modal-mitre-link').href = alert.mitre.url || `https://attack.mitre.org/techniques/${alert.mitre.technique_id}/`;
+        } else {
+          mitreCont.classList.add('hidden');
+        }
+
+        // Compliance Mapping
+        const compCont = document.getElementById('modal-compliance-container');
+        const compList = document.getElementById('modal-compliance-list');
+        if (alert.compliance && alert.compliance.length > 0) {
+          compCont.classList.remove('hidden');
+          compList.innerHTML = alert.compliance.map(c => `
+            <div class="bg-slate-900 p-2 rounded border border-dark-border">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-bold font-mono text-blue-400">${c.standard}</span>
+                <span class="text-[9px] font-mono px-1 rounded bg-blue-500/20 text-blue-300">${c.requirement_id}</span>
+              </div>
+              <div class="text-[11px] text-slate-200 font-medium mt-0.5">${c.title}</div>
+            </div>
+          `).join('');
+        } else {
+          compCont.classList.add('hidden');
+        }
+
+        // DFIR Evidence & PCAP
+        document.getElementById('modal-pcap-download').href = `/api/v1/alerts/${alertId}/pcap`;
+        try {
+          const evRes = await fetch(`/api/v1/alerts/${alertId}/evidence`);
+          if (evRes.ok) {
+            const ev = await evRes.json();
+            document.getElementById('modal-evidence-hash').textContent = `SHA-256: ${ev.sha256_hash}`;
+            document.getElementById('modal-evidence-hash').title = `SHA-256: ${ev.sha256_hash} (${ev.file_size_bytes} bytes)`;
+          }
+        } catch(e) {}
+
+        // SOAR Mitigation Playbook
+        try {
+          const pbRes = await fetch(`/api/v1/alerts/${alertId}/playbook`);
+          if (pbRes.ok) {
+            const pb = await pbRes.json();
+            currentPlaybookRules = pb.rules || [];
+            document.getElementById('modal-playbook-target').textContent = `Objetivo: ${pb.target_ip_to_block} (${pb.estimated_impact} Impact)`;
+            renderPlaybookTabs(0);
+          }
+        } catch(e) {}
+
+        document.getElementById('incident-modal').classList.remove('hidden');
+      } catch (e) {}
+    }
+
+    function renderPlaybookTabs(activeIndex) {
+      currentSelectedPlaybookIndex = activeIndex;
+      const tabsCont = document.getElementById('modal-playbook-tabs');
+      if (!currentPlaybookRules || currentPlaybookRules.length === 0) {
+        tabsCont.innerHTML = '<span class="text-slate-500 text-xs">Sin reglas disponibles</span>';
+        return;
+      }
+
+      tabsCont.innerHTML = currentPlaybookRules.map((r, idx) => `
+        <button onclick="renderPlaybookTabs(${idx})" class="px-2.5 py-1 text-[11px] font-mono rounded ${
+          idx === activeIndex ? 'bg-blue-600/30 text-blue-300 border border-blue-500/40 font-bold' : 'text-slate-400 hover:text-white'
+        }">
+          ${r.platform}
+        </button>
+      `).join('');
+
+      const rule = currentPlaybookRules[activeIndex];
+      if (rule) {
+        document.getElementById('modal-playbook-code').textContent = rule.block_command;
+        document.getElementById('modal-playbook-explanation').textContent = `${rule.explanation} | Rollback: ${rule.rollback_command}`;
+      }
+    }
+
+    function copyCurrentPlaybookCommand() {
+      const code = document.getElementById('modal-playbook-code').textContent;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(code);
+        showToast('Comando de contención copiado al portapapeles', 'success');
+      }
+    }
+
+    function closeIncidentModal() {
+      document.getElementById('incident-modal').classList.add('hidden');
+      currentModalAlertId = null;
+    }
+
+    async function updateAlertState(newStatus) {
+      if (!currentModalAlertId) return;
+      try {
+        await fetch(`/api/v1/alerts/${currentModalAlertId}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus }),
+        });
+        closeIncidentModal();
+        loadAlerts();
+        loadOverviewMetrics();
+      } catch (e) {}
+    }
+
+    // --- UTILITIES ---
+    function formatBytes(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+
+    async function loadPurpleTeam() {
+      try {
+        const res = await fetch('/api/v1/purple-team/matrix');
+        const data = await res.json();
+        const tbody = document.getElementById('purple-tbody');
+
+        if (!data.correlation_matrix || data.correlation_matrix.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" class="text-center py-6 text-slate-500">No hay vectores configurados.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = data.correlation_matrix.map(v => `
+          <tr class="hover:bg-slate-900/50 transition">
+            <td class="py-3 px-4 font-mono text-purple-400 font-bold">${v.vector_id}</td>
+            <td class="py-3 px-4">
+              <div class="font-semibold text-white">${v.name}</div>
+              <div class="text-[11px] text-slate-400">${v.description}</div>
+            </td>
+            <td class="py-3 px-4 font-mono text-slate-300">${v.layer}</td>
+            <td class="py-3 px-4 font-mono text-blue-300 font-medium">${v.novaflow_detector}</td>
+            <td class="py-3 px-4">
+              <a href="https://attack.mitre.org/techniques/${v.mitre_id.split('.')[0]}/" target="_blank" class="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono text-[10px] font-bold border border-indigo-500/30 hover:bg-indigo-500/30 transition">
+                ${v.mitre_id}
+              </a>
+              <div class="text-[10px] text-slate-400 mt-0.5">${v.mitre_tactic}</div>
+            </td>
+            <td class="py-3 px-4">
+              <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                v.expected_severity === 'CRITICAL' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' :
+                v.expected_severity === 'HIGH' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30' :
+                'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+              }">${v.expected_severity}</span>
+            </td>
+            <td class="py-3 px-4">
+              <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono font-medium flex items-center gap-1 w-max">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> CORRELACIONADO
+              </span>
+            </td>
+          </tr>
+        `).join('');
+      } catch (e) {}
+    }
+
+    async function runPurpleSimulation() {
+      const btn = document.getElementById('btn-run-purple');
+      btn.disabled = true;
+      btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Simulando Ataques...';
+      if (window.lucide) lucide.createIcons();
+
+      try {
+        const res = await fetch('/api/v1/purple-team/simulate', { method: 'POST' });
+        const data = await res.json();
+
+        document.getElementById('purple-stat-total').textContent = data.vectors_executed;
+        document.getElementById('purple-stat-detected').textContent = data.alerts_triggered;
+        document.getElementById('purple-stat-rate').textContent = `${data.detection_rate_pct}%`;
+
+        // Update CEF Terminal
+        const cefLogs = data.results.map(r => r.cef_log).filter(Boolean);
+        document.getElementById('purple-cef-terminal').textContent = cefLogs.join('\n\n') || '// No se recibieron registros CEF.';
+
+        // Re-cargar alertas y matriz
+        loadAlerts();
+        loadOverviewMetrics();
+      } catch (e) {
+        alert("Error ejecutando simulación Purple Team");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="play" class="w-4 h-4"></i> Simular Ataques OmniBreach';
+        if (window.lucide) lucide.createIcons();
+      }
+    }
+
+    // --- MITRE ATT&CK HEATMAP LOGIC ---
+    let mitreHeatmapData = null;
+
+    async function loadMitreHeatmap() {
+      try {
+        const res = await fetch('/api/v1/mitre/heatmap');
+        const data = await res.json();
+        mitreHeatmapData = data;
+
+        const badge = document.getElementById('mitre-heat-badge');
+        const statusEl = document.getElementById('mitre-threat-status');
+        const activeCountEl = document.getElementById('mitre-stat-active-count');
+
+        const activeTechniques = data.cells.filter(c => c.active_alerts_count > 0).length;
+        if (activeCountEl) activeCountEl.textContent = `${activeTechniques} / ${data.cells.length}`;
+
+        if (badge && statusEl) {
+          if (data.threat_level === 'CRITICAL_RED') {
+            badge.className = "ml-1 text-[10px] px-1.5 py-0.2 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 font-mono font-bold animate-pulse";
+            badge.textContent = "CRÍTICO";
+            statusEl.className = "px-2.5 py-0.5 rounded text-[11px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse";
+            statusEl.textContent = "AMENAZA CRÍTICA DETECTADA";
+          } else if (data.threat_level === 'ELEVATED_ORANGE') {
+            badge.className = "ml-1 text-[10px] px-1.5 py-0.2 rounded-full bg-orange-500/20 text-orange-300 border border-orange-500/30 font-mono font-bold";
+            badge.textContent = "ELEVADO";
+            statusEl.className = "px-2.5 py-0.5 rounded text-[11px] font-mono font-bold bg-orange-500/20 text-orange-300 border border-orange-500/40";
+            statusEl.textContent = "AMENAZA ELEVADA EN RED";
+          } else if (data.threat_level === 'MONITORED_YELLOW') {
+            badge.className = "ml-1 text-[10px] px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono";
+            badge.textContent = "ALERTA";
+            statusEl.className = "px-2.5 py-0.5 rounded text-[11px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40";
+            statusEl.textContent = "ACTIVIDAD MODERADA";
+          } else {
+            badge.className = "ml-1 text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono";
+            badge.textContent = "SEGURO";
+            statusEl.className = "px-2.5 py-0.5 rounded text-[11px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30";
+            statusEl.textContent = "PERÍMETRO LIMPIO";
+          }
+        }
+
+        renderMitreGrid(data.cells);
+      } catch (e) {}
+    }
+
+    function renderMitreGrid(cells) {
+      const container = document.getElementById('mitre-grid-container');
+      if (!container) return;
+      if (!cells || cells.length === 0) {
+        container.innerHTML = '<div class="p-6 text-center text-slate-500 text-xs col-span-full">No se pudo cargar la matriz.</div>';
+        return;
+      }
+
+      const byTactic = {};
+      cells.forEach(c => {
+        if (!byTactic[c.tactic]) byTactic[c.tactic] = [];
+        byTactic[c.tactic].push(c);
+      });
+
+      container.innerHTML = Object.entries(byTactic).map(([tactic, tCells]) => `
+        <div class="bg-slate-900/50 border border-dark-border rounded-xl p-3 flex flex-col gap-2.5">
+          <div class="border-b border-dark-border pb-2 flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-200 tracking-wide">${tactic}</span>
+            <span class="text-[10px] font-mono text-slate-500">${tCells.length} técnicas</span>
+          </div>
+          <div class="space-y-2">
+            ${tCells.map(c => {
+              const isActive = c.active_alerts_count > 0;
+              let heatClasses = "bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700";
+              let badgeColor = "bg-slate-800 text-slate-400";
+
+              if (c.heat_score === 3) {
+                heatClasses = "bg-rose-950/40 border-rose-500/60 text-rose-200 shadow-lg shadow-rose-950/30 hover:border-rose-400";
+                badgeColor = "bg-rose-500/20 text-rose-300 border border-rose-500/40";
+              } else if (c.heat_score === 2) {
+                heatClasses = "bg-orange-950/30 border-orange-500/60 text-orange-200 shadow-lg shadow-orange-950/20 hover:border-orange-400";
+                badgeColor = "bg-orange-500/20 text-orange-300 border border-orange-500/40";
+              } else if (c.heat_score === 1) {
+                heatClasses = "bg-amber-950/25 border-amber-500/40 text-amber-200 hover:border-amber-400";
+                badgeColor = "bg-amber-500/20 text-amber-300 border border-amber-500/40";
+              }
+
+              return `
+                <div onclick="selectMitreTechnique('${c.technique_id}', '${c.technique_name}', '${c.tactic}', '${c.url}')"
+                     class="p-2.5 rounded-lg border transition cursor-pointer flex flex-col gap-1.5 ${heatClasses}">
+                  <div class="flex items-center justify-between">
+                    <span class="font-mono text-[11px] font-bold ${isActive ? 'text-white' : 'text-slate-400'}">${c.technique_id}</span>
+                    <span class="text-[10px] font-mono px-1.5 py-0.2 rounded ${badgeColor}">
+                      ${isActive ? `${c.active_alerts_count} ALERTAS` : '0'}
+                    </span>
+                  </div>
+                  <div class="text-xs font-medium leading-snug truncate text-slate-200" title="${c.technique_name}">
+                    ${c.technique_name}
+                  </div>
+                  ${c.subtechnique_name ? `
+                    <div class="text-[10px] text-slate-400 font-mono truncate" title="${c.subtechnique_id}: ${c.subtechnique_name}">
+                      &bull; ${c.subtechnique_id}: ${c.subtechnique_name}
+                    </div>
+                  ` : ''}
+                  ${c.sources && c.sources.length > 0 ? `
+                    <div class="text-[10px] text-slate-400 font-mono mt-0.5 truncate">
+                      Atacantes: ${c.sources.join(', ')}
+                    </div>
+                  ` : ''}
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `).join('');
+
+      if (window.lucide) lucide.createIcons();
+    }
+
+    async function selectMitreTechnique(techId, techName, tactic, url) {
+      const container = document.getElementById('mitre-drilldown-container');
+      if (!container) return;
+      container.classList.remove('hidden');
+
+      document.getElementById('drilldown-badge').textContent = techId;
+      document.getElementById('drilldown-title').textContent = techName;
+      document.getElementById('drilldown-tactic').textContent = `Táctica: ${tactic}`;
+      document.getElementById('drilldown-mitre-url').href = url || `https://attack.mitre.org/techniques/${techId}/`;
+
+      const listDiv = document.getElementById('drilldown-alerts-list');
+      listDiv.innerHTML = '<div class="text-xs text-slate-500 py-3">Consultando incidentes de telemetría...</div>';
+
+      try {
+        const res = await fetch(`/api/v1/mitre/techniques/${techId}/alerts`);
+        const data = await res.json();
+
+        if (!data.alerts || data.alerts.length === 0) {
+          listDiv.innerHTML = '<div class="text-xs text-slate-500 py-3 bg-slate-900/50 p-3 rounded-lg border border-dark-border">No hay incidentes activos registrados para esta técnica actualmente.</div>';
+          return;
+        }
+
+        listDiv.innerHTML = data.alerts.map(a => `
+          <div class="bg-slate-900 p-3 rounded-lg border border-dark-border flex items-center justify-between text-xs hover:border-slate-700 transition">
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                  a.severity === 'CRITICAL' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' :
+                  a.severity === 'HIGH' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30' :
+                  'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                }">${a.severity}</span>
+                <span class="font-semibold text-white">${a.title}</span>
+              </div>
+              <div class="text-[11px] text-slate-400 font-mono">
+                ${a.src_ip} &rarr; ${a.dst_ip}:${a.dst_port} &bull; Confianza: ${(a.confidence * 100).toFixed(0)}%
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="openIncidentModal('${a.alert_id}')" class="px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 text-xs font-medium transition">
+                Forense & Playbook
+              </button>
+            </div>
+          </div>
+        `).join('');
+      } catch (e) {
+        listDiv.innerHTML = '<div class="text-xs text-rose-400 py-2">Error al recuperar incidentes.</div>';
+      }
+    }
+
+    function closeMitreDrilldown() {
+      const container = document.getElementById('mitre-drilldown-container');
+      if (container) container.classList.add('hidden');
+    }
+
+    // --- CYTOSCAPE.JS ATTACK GRAPH TOPOLOGY LOGIC ---
+    let cy = null;
+    let selectedNodeData = null;
+
+    function initCytoscapeGraph() {
+      const container = document.getElementById('cytoscape-canvas');
+      if (!container || cy) return;
+
+      cy = cytoscape({
+        container: container,
+        boxSelectionEnabled: false,
+        autounselectify: false,
+        style: [
+          {
+            selector: 'node',
+            style: {
+              'label': 'data(id)',
+              'font-size': '10px',
+              'font-family': 'monospace',
+              'color': '#cbd5e1',
+              'text-valign': 'bottom',
+              'text-margin-y': 4,
+              'background-color': '#10b981',
+              'border-width': 2,
+              'border-color': '#064e3b',
+              'width': 28,
+              'height': 28
+            }
+          },
+          {
+            selector: 'node[role = "INFRASTRUCTURE_DC"], node[role = "INTERNAL_SERVER"], node[role = "ADMIN_MANAGEMENT"]',
+            style: {
+              'background-color': '#f59e0b',
+              'border-color': '#78350f',
+              'width': 34,
+              'height': 34
+            }
+          },
+          {
+            selector: 'node[?compromised]',
+            style: {
+              'background-color': '#ef4444',
+              'border-color': '#7f1d1d',
+              'border-width': 3
+            }
+          },
+          {
+            selector: 'node:selected',
+            style: {
+              'border-color': '#38bdf8',
+              'border-width': 4
+            }
+          },
+          {
+            selector: 'edge',
+            style: {
+              'width': 1.5,
+              'line-color': '#334155',
+              'target-arrow-color': '#475569',
+              'target-arrow-shape': 'triangle',
+              'arrow-scale': 0.8,
+              'curve-style': 'bezier'
+            }
+          },
+          {
+            selector: 'edge[?has_lateral_movement], edge[?has_c2_communication]',
+            style: {
+              'line-color': '#f43f5e',
+              'target-arrow-color': '#f43f5e',
+              'width': 2.5,
+              'line-style': 'dashed'
+            }
+          },
+          {
+            selector: '.path-highlight',
+            style: {
+              'line-color': '#06b6d4',
+              'target-arrow-color': '#06b6d4',
+              'width': 4,
+              'z-index': 99
+            }
+          },
+          {
+            selector: '.node-highlight',
+            style: {
+              'border-color': '#06b6d4',
+              'border-width': 5,
+              'z-index': 100
+            }
+          }
+        ],
+        elements: []
+      });
+
+      cy.on('tap', 'node', function(evt) {
+        const node = evt.target;
+        handleNodeClick(node.data());
+      });
+
+      cy.on('tap', function(evt) {
+        if (evt.target === cy) {
+          clearNodeSelection();
+        }
+      });
+    }
+
+    async function loadGraphTopology() {
+      if (!cy) initCytoscapeGraph();
+      const filterComp = document.getElementById('graph-filter-compromised')?.checked || false;
+
+      try {
+        const res = await fetch(`/api/v1/graph/topology?compromised_only=${filterComp}`);
+        const data = await res.json();
+
+        // Actualizar contadores
+        const totalNodes = data.summary?.total_nodes ?? (data.nodes ? data.nodes.length : 0);
+        const totalEdges = data.summary?.total_edges ?? (data.edges ? data.edges.length : 0);
+        const compNodes = data.summary?.compromised_nodes ?? 0;
+
+        document.getElementById('graph-stat-nodes').textContent = totalNodes;
+        document.getElementById('graph-stat-edges').textContent = totalEdges;
+        document.getElementById('graph-stat-compromised').textContent = compNodes;
+
+        if (!cy) return;
+
+        cy.elements().remove();
+        if (data.nodes && data.nodes.length > 0) {
+          cy.add(data.nodes);
+        }
+        if (data.edges && data.edges.length > 0) {
+          cy.add(data.edges);
+        }
+
+        applyGraphLayout();
+      } catch (e) {
+        console.error("Error loading topology:", e);
+      }
+    }
+
+    function applyGraphLayout() {
+      if (!cy || cy.nodes().length === 0) return;
+      const layoutName = document.getElementById('graph-layout-select')?.value || 'cose';
+      const layout = cy.layout({
+        name: layoutName,
+        animate: true,
+        animationDuration: 400,
+        padding: 30
+      });
+      layout.run();
+    }
+
+    function fitGraphView() {
+      if (!cy) return;
+      cy.fit(null, 30);
+    }
+
+    function handleNodeClick(data) {
+      selectedNodeData = data;
+      document.getElementById('inspector-empty-state').classList.add('hidden');
+      document.getElementById('inspector-details').classList.remove('hidden');
+
+      document.getElementById('inspector-ip').textContent = data.id || data.ip;
+      document.getElementById('inspector-role').textContent = data.role || 'WORKSTATION';
+      
+      const compEl = document.getElementById('inspector-compromised');
+      if (data.compromised) {
+        compEl.textContent = 'COMPROMETIDO';
+        compEl.className = 'font-mono font-bold text-rose-400';
+      } else {
+        compEl.textContent = 'SEGURO';
+        compEl.className = 'font-mono font-bold text-emerald-400';
+      }
+
+      document.getElementById('inspector-risk-score').textContent = (data.risk_score || 0).toFixed(1);
+      document.getElementById('inspector-degrees').textContent = `${data.in_degree || 0} In / ${data.out_degree || 0} Out`;
+
+      document.getElementById('inspector-status-tag').textContent = data.id || data.ip;
+      document.getElementById('inspector-status-tag').className = 'px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-950 text-cyan-300 border border-cyan-800';
+
+      // Ocultar subpaneles al cambiar de nodo
+      document.getElementById('inspector-blast-panel').classList.add('hidden');
+      document.getElementById('inspector-pzero-panel').classList.add('hidden');
+
+      if (cy) {
+        cy.elements().removeClass('path-highlight node-highlight');
+      }
+    }
+
+    function clearNodeSelection() {
+      selectedNodeData = null;
+      document.getElementById('inspector-empty-state').classList.remove('hidden');
+      document.getElementById('inspector-details').classList.add('hidden');
+      document.getElementById('inspector-status-tag').textContent = 'Seleccionar Nodo';
+      document.getElementById('inspector-status-tag').className = 'px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-400 border border-slate-700';
+      if (cy) {
+        cy.elements().removeClass('path-highlight node-highlight');
+      }
+    }
+
+    async function inspectBlastRadius() {
+      if (!selectedNodeData) return;
+      const ip = selectedNodeData.id || selectedNodeData.ip;
+      const panel = document.getElementById('inspector-blast-panel');
+      panel.classList.remove('hidden');
+
+      try {
+        const res = await fetch(`/api/v1/graph/blast-radius/${ip}`);
+        const data = await res.json();
+
+        const badge = document.getElementById('blast-score-badge');
+        const score = data.blast_score || 0;
+        badge.textContent = `${score}% (${data.risk_level})`;
+
+        if (score >= 70) {
+          badge.className = 'font-mono font-bold text-xs px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30';
+          document.getElementById('blast-score-bar').className = 'h-2 rounded-full bg-rose-500 transition-all duration-500';
+        } else if (score >= 45) {
+          badge.className = 'font-mono font-bold text-xs px-2 py-0.5 rounded bg-orange-500/20 text-orange-300 border border-orange-500/30';
+          document.getElementById('blast-score-bar').className = 'h-2 rounded-full bg-orange-500 transition-all duration-500';
+        } else {
+          badge.className = 'font-mono font-bold text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30';
+          document.getElementById('blast-score-bar').className = 'h-2 rounded-full bg-amber-500 transition-all duration-500';
+        }
+
+        document.getElementById('blast-score-bar').style.width = `${score}%`;
+        document.getElementById('blast-reachable-count').textContent = data.reachable_hosts_count || 0;
+        document.getElementById('blast-critical-count').textContent = data.critical_assets_exposed ? data.critical_assets_exposed.length : 0;
+
+        const critList = document.getElementById('blast-critical-list');
+        if (data.critical_assets_exposed && data.critical_assets_exposed.length > 0) {
+          critList.innerHTML = data.critical_assets_exposed.map(c => `
+            <div class="flex items-center justify-between text-[10px] p-1.5 rounded bg-slate-950 border border-slate-800">
+              <span class="font-bold text-slate-200">${c.ip}</span>
+              <span class="text-slate-400">${c.role} &bull; ${c.hops_distance} saltos</span>
+            </div>
+          `).join('');
+        } else {
+          critList.innerHTML = '<div class="text-[10px] text-slate-500 py-1">Sin activos de alta criticidad en radio inmediato.</div>';
+        }
+      } catch (e) {
+        alert("Error al calcular el Blast Radius para el host seleccionado.");
+      }
+    }
+
+    async function inspectPatientZero() {
+      if (!selectedNodeData) return;
+      const ip = selectedNodeData.id || selectedNodeData.ip;
+      const panel = document.getElementById('inspector-pzero-panel');
+      panel.classList.remove('hidden');
+
+      try {
+        const res = await fetch(`/api/v1/graph/patient-zero/${ip}`);
+        const data = await res.json();
+
+        document.getElementById('pzero-root-ip').textContent = data.patient_zero_ip || 'N/A';
+        document.getElementById('pzero-vector').textContent = data.initial_compromise_vector || 'Desconocido';
+        document.getElementById('pzero-hops').textContent = `${data.hops_to_target || 0} saltos`;
+
+        const pathArray = data.causal_path || [ip];
+        document.getElementById('pzero-path-display').textContent = pathArray.join(' -> ');
+
+        // Resaltar ruta causal en Cytoscape
+        if (cy && pathArray.length > 0) {
+          cy.elements().removeClass('path-highlight node-highlight');
+          pathArray.forEach((nodeIp, idx) => {
+            const node = cy.getElementById(nodeIp);
+            if (node) node.addClass('node-highlight');
+            if (idx < pathArray.length - 1) {
+              const nextIp = pathArray[idx + 1];
+              const edge = cy.edges(`[source = "${nodeIp}"][target = "${nextIp}"], [source = "${nextIp}"][target = "${nodeIp}"]`);
+              if (edge) edge.addClass('path-highlight');
+            }
+          });
+        }
+      } catch (e) {
+        alert("No se encontró cadena de intrusión causal para este host.");
+      }
+    }
+
+    function switchTab(tabId) {
+      currentTab = tabId;
+      ['overview', 'talkers', 'incidents', 'flows', 'purple', 'mitre', 'graph'].forEach(t => {
+        const view = document.getElementById(`view-${t}`);
+        const btn = document.getElementById(`tab-${t}`);
+        if (!view || !btn) return;
+        if (t === tabId) {
+          view.classList.remove('hidden');
+          btn.className = "tab-btn py-3 px-3 border-b-2 border-blue-500 text-blue-400 flex items-center gap-2 transition";
+        } else {
+          view.classList.add('hidden');
+          btn.className = "tab-btn py-3 px-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 transition";
+        }
+      });
+      if (tabId === 'graph') {
+        setTimeout(() => {
+          if (!cy) initCytoscapeGraph();
+          cy.resize();
+          fitGraphView();
+        }, 100);
+      }
+      refreshCurrentView();
+    }
+
+    function refreshCurrentView() {
+      if (currentTab === 'overview') loadOverviewMetrics();
+      else if (currentTab === 'talkers') loadTopTalkers();
+      else if (currentTab === 'incidents') loadAlerts();
+      else if (currentTab === 'flows') loadFlows();
+      else if (currentTab === 'purple') loadPurpleTeam();
+      else if (currentTab === 'mitre') loadMitreHeatmap();
+      else if (currentTab === 'graph') loadGraphTopology();
+    }
+
+    // INITIAL SETUP
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      initCharts();
+      connectWebSocket();
+      loadOverviewMetrics();
+      loadMitreHeatmap();
+      // Polling de respaldo cada 5s
+      setInterval(() => {
+        loadOverviewMetrics();
+        if (currentTab === 'mitre') loadMitreHeatmap();
+      }, 5000);
+    });
+  </script>
+</body>
+</html>

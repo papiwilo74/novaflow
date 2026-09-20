@@ -1,0 +1,21 @@
+title: Outbound Communication to Unusual C2 High Ports
+id: 9a8b7c6d-1122-3344-5566-778899aabb01
+status: production
+description: Detects internal workstation initiating high upload volume to uncommon C2 ports often used by Cobalt Strike or Sliver.
+author: NovaSec Blue Team
+references:
+  - https://attack.mitre.org/techniques/T1071/001/
+tags:
+  - attack.command_and_control
+  - attack.t1071.001
+level: high
+detection:
+  selection:
+    dst_port:
+      - 8080
+      - 8443
+      - 50050
+      - 4444
+    protocol: 6
+    upload_ratio: "> 0.70"
+  condition: selection

@@ -1,0 +1,16 @@
+title: DNS Anomalous Large Payload Exfiltration Channel
+id: 9a8b7c6d-1122-3344-5566-778899aabb03
+status: production
+description: Detects large volumetric DNS exchanges that violate standard resolver sizes, indicative of data tunneling.
+author: NovaSec Blue Team
+references:
+  - https://attack.mitre.org/techniques/T1071/004/
+tags:
+  - attack.exfiltration
+  - attack.t1071.004
+level: high
+detection:
+  selection:
+    dst_port: 53
+    bytes: "> 5000"
+  condition: selection

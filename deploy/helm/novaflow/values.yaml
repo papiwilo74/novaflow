@@ -1,0 +1,70 @@
+﻿global:
+  environment: production
+  imagePullPolicy: IfNotPresent
+
+operator:
+  enabled: true
+  replicas: 1
+  image:
+    repository: novasec/novaflow-operator
+    tag: "1.0.0"
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+cluster:
+  name: novaflow-prod
+  version: "1.0.0"
+  workers:
+    replicas: 3
+    udpPort: 2055
+    batchSize: 5000
+    resources:
+      limits:
+        cpu: "2000m"
+        memory: "2Gi"
+      requests:
+        cpu: "500m"
+        memory: "512Mi"
+  api:
+    replicas: 2
+    enableDashboard: true
+    serviceType: ClusterIP
+    resources:
+      limits:
+        cpu: "1000m"
+        memory: "1Gi"
+      requests:
+        cpu: "250m"
+        memory: "256Mi"
+  clickhouse:
+    replicas: 1
+    retentionDays: 90
+    storageSize: 150Gi
+    storageClass: standard
+  kafka:
+    enabled: true
+    brokerUrl: "novaflow-redpanda:9092"
+  tenants:
+    - tenantId: "tenant-enterprise-core"
+      name: "Global Corporate HQ"
+      rateLimitRpm: 300
+      storageQuotaGb: 100
+  tls:
+    enabled: false
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 75
+  targetMemoryUtilizationPercentage: 80
+
+backup:
+  enabled: true
+  schedule: "0 2 * * *" # Diario a las 02:00 AM
+  s3Bucket: "s3://novaflow-dr-backups/daily"

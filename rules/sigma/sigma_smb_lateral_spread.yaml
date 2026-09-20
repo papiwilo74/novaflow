@@ -1,0 +1,17 @@
+title: Suspicious SMB Named Pipe or PsExec Lateral Spread
+id: 9a8b7c6d-1122-3344-5566-778899aabb02
+status: production
+description: Detects lateral movement activity targeting internal SMB file-sharing port 445 with substantial packet volumes.
+author: NovaSec Blue Team
+references:
+  - https://attack.mitre.org/techniques/T1021/002/
+tags:
+  - attack.lateral_movement
+  - attack.t1021.002
+level: critical
+detection:
+  selection:
+    dst_port: 445
+    protocol: 6
+    packets: "> 25"
+  condition: selection
