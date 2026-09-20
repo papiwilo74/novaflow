@@ -107,6 +107,14 @@ app.include_router(ws_router)
 if os.path.isdir(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
+@app.get("/dashboard", response_class=FileResponse)
+async def serve_dashboard():
+    """Sirve el SOC Web Dashboard en /dashboard."""
+    index_path = os.path.join(static_dir, "index.html")
+    if os.path.isfile(index_path):
+        return FileResponse(index_path)
+    return {"error": "Dashboard index.html no encontrado"}
+
 
 @app.post("/api/v1/auth/token")
 async def issue_token(credentials: Dict[str, str]) -> Dict[str, Any]:
