@@ -175,9 +175,15 @@ class DetectionEngine:
         # Procesar y registrar alertas emitidas (incluyendo campañas correlacionadas)
         final_emitted_alerts: List[SecurityAlert] = []
         for alert in generated_alerts:
+            if flow.campaign_id and not alert.campaign_id:
+                alert.campaign_id = flow.campaign_id
+            if flow.vector_id and not alert.vector_id:
+                alert.vector_id = flow.vector_id
             final_emitted_alerts.append(alert)
             campaign = self._record_alert(alert)
             if campaign:
+                if flow.campaign_id and not campaign.campaign_id:
+                    campaign.campaign_id = flow.campaign_id
                 final_emitted_alerts.append(campaign)
 
         return final_emitted_alerts

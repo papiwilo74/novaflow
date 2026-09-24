@@ -48,6 +48,8 @@ class SecurityAlert:
     status: str = "NEW"  # NEW, INVESTIGATING, RESOLVED, FALSE_POSITIVE
     mitre: Optional[Dict[str, str]] = None
     compliance: Optional[List[Dict[str, str]]] = None
+    campaign_id: Optional[str] = None
+    vector_id: Optional[str] = None
 
     def __post_init__(self):
         if self.mitre is None:
@@ -80,6 +82,8 @@ class SecurityAlert:
             "compliance": self.compliance,
             "metrics": self.metrics,
             "status": self.status,
+            "campaign_id": self.campaign_id,
+            "vector_id": self.vector_id,
         }
 
     def to_cef(self) -> str:
@@ -114,9 +118,16 @@ class SecurityAlert:
         
         if self.mitre:
             ext_parts.append(f"cs2={self.mitre.get('technique_id', '')}")
-            ext_parts.append(f"cs2Label=MitreTechniqueId")
+            ext_parts.append("cs2Label=MitreTechniqueId")
             ext_parts.append(f"cs3={self.mitre.get('tactic', '')}")
-            ext_parts.append(f"cs3Label=MitreTactic")
+            ext_parts.append("cs3Label=MitreTactic")
+
+        if self.campaign_id:
+            ext_parts.append(f"cs4={self.campaign_id}")
+            ext_parts.append("cs4Label=CampaignId")
+        if self.vector_id:
+            ext_parts.append(f"cs5={self.vector_id}")
+            ext_parts.append("cs5Label=VectorId")
 
         extension = " ".join(ext_parts)
         return f"CEF:0|NovaSec|NovaFlow|1.0.0|{self.category.value}|{clean_title}|{cef_sev}|{extension}"

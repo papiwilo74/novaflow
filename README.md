@@ -1,7 +1,7 @@
 # NovaFlow NDR: Network Detection, Telemetry & Anomaly Engine
 
 [![Python Version](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://python.org)
-[![Tests](https://img.shields.io/badge/Tests-155%20Passing%20(100%25)-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-163%20Passing%20(100%25)-brightgreen.svg)]()
 [![Pure Python](https://img.shields.io/badge/Dependencies-Zero%20C%20%2F%20Npcap-orange.svg)]()
 [![Standards](https://img.shields.io/badge/Standards-NetFlow%20v5%2Fv9%20%7C%20IPFIX%20%7C%20CEF%20%7C%20OCSF%20%7C%20Sigma%20%7C%20MITRE-blueviolet.svg)]()
 
@@ -31,14 +31,14 @@
 | • Motor de Reglas Sigma (YAML)    | • MITRE ATT&CK Navigator v4.5      | • Correlación Kill Chain  |
 | • Threat Hunting Engine (AST DSL) | • Generador de Tráfico & Benchmark | • Evasiones de Detección  |
 | • Cumplimiento PCI-DSS / ISO 27001| • Detección C2 por Jitter / CV     | • Formato Abierto OCSF    |
-| • Sonda de Red en Vivo & Hooks    |                                    |                           |
+| • Sonda de Red en Vivo & Hooks    | • Contrato Purple Team & Benchmark |                           |
 +-----------------------------------+------------------------------------+---------------------------+
 ```
 
 ---
 
 ### 🟢 1. Núcleo Implementado y Probado (Defendible en Entrevista)
-*Código de producción probado exhaustivamente mediante 155 pruebas automatizadas:*
+*Código de producción probado exhaustivamente mediante 163 pruebas automatizadas:*
 
 1. **Parser Binario NetFlow v5 (`collector/parser.py`)**:
    - Decodificación exacta según el RFC de Cisco: cabecera fija de 24 bytes (`!HHIIIIBBH`) y registros de 48 bytes (`!4s4s4sHHIIIIHHBBBBHHBBH`).
@@ -170,7 +170,7 @@ source .venv/bin/activate  # En Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 2. Ejecutar la Suite de Pruebas Automatizadas (155 Tests - 100% Passing)
+### 2. Ejecutar la Suite de Pruebas Automatizadas (163 Tests - 100% Passing)
 ```bash
 python -m unittest discover -s tests -p "test_*.py" -v
 ```
@@ -196,6 +196,8 @@ python -m uvicorn api.main:app --host 127.0.0.1 --port 8000 --reload
 - **Threat Hunting DSL & Playbooks:** `POST http://127.0.0.1:8000/api/v1/flows/hunt`
 - **Topología de Red Cytoscape/D3:** `GET http://127.0.0.1:8000/api/v1/graph/topology`
 - **Métricas Prometheus:** `GET http://127.0.0.1:8000/metrics`
+- **Contrato Formal Purple Team v1.0:** `GET http://127.0.0.1:8000/api/v1/purple-team/contract`
+- **Ejecución de Benchmark REST:** `POST http://127.0.0.1:8000/api/v1/purple-team/benchmark`
 
 ### 6. Captura y Detección de Ataques Reales en Vivo (OmniBreach x NovaFlow)
 NovaFlow incluye una **Sonda de Flujo en Vivo en Python puro** (`tools/live_probe.py`) que mide el tráfico de red de herramientas ofensivas como OmniBreach y lo exporta como datagramas binarios Cisco NetFlow v5 hacia el colector en `udp://127.0.0.1:2055`:
@@ -225,6 +227,14 @@ curl -X POST http://127.0.0.1:8000/api/v1/telemetry/hook \
   -H "Content-Type: application/json" \
   -d '{"src_ip": "10.0.0.50", "dst_ip": "192.168.1.10", "src_port": 49152, "dst_port": 80, "protocol": 6, "packets": 100, "bytes": 50000, "tcp_flags": 2}'
 ```
+
+### 7. Arnés de Evaluación Experimental Cuantitativo (Ruido de Fondo & MTTD)
+Ejecuta la evaluación formal científica de NovaFlow contra campañas de OmniBreach intercaladas en tráfico normal de fondo (Background Noise), midiendo empíricamente latencia MTTD, matriz de confusión (TP, FP, FN, TN) y exportando reportes reproducibles:
+```bash
+# Ejecutar benchmark experimental con 5,000 flujos benignos de fondo
+python scripts/run_purple_benchmark.py --background-flows 5000 --seed 42
+```
+Los resultados se exportan automáticamente en `reports/purple_benchmark_<timestamp>.json` y `reports/purple_benchmark_<timestamp>.md`.
 
 ---
 

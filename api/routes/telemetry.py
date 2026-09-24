@@ -27,6 +27,8 @@ class TelemetryFlowInput(BaseModel):
     packets: int = Field(default=10, example=10)
     tcp_flags: int = Field(default=24, example=24)  # 2=SYN, 24=PSH+ACK
     attack_label: Optional[str] = Field(None, example="OmniBreach SQLi Scan")
+    campaign_id: Optional[str] = Field(None, example="camp_2026_09_ob_01")
+    vector_id: Optional[str] = Field(None, example="OB-RECON-01")
 
 
 class TelemetryBatchInput(BaseModel):
@@ -70,6 +72,8 @@ async def ingest_telemetry_flow(
         dst_as=0,
         src_mask=24,
         dst_mask=24,
+        campaign_id=flow_in.campaign_id,
+        vector_id=flow_in.vector_id,
     )
 
     # 1. Registrar en el historial de flujos de la API y WebSocket
@@ -125,6 +129,8 @@ async def ingest_telemetry_batch(
             dst_as=0,
             src_mask=24,
             dst_mask=24,
+            campaign_id=f.campaign_id,
+            vector_id=f.vector_id,
         ))
 
     system_state.record_flows(records)

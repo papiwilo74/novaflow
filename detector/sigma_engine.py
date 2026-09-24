@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from collector.parser import NetFlowRecord
 from detector.models import AlertCategory, AlertSeverity, SecurityAlert
+from detector.rules.bandwidth_exfil import is_internal_ip
 
 
 def parse_simple_yaml(text: str) -> Dict[str, Any]:
@@ -292,6 +293,8 @@ class SigmaEngine:
 
         # Mapeo de campos del flujo
         proto_str = "TCP" if flow.protocol == 6 else ("UDP" if flow.protocol == 17 else str(flow.protocol))
+        is_dst_internal = is_internal_ip(flow.dst_ip)
+        direction = "internal" if is_dst_internal else "outbound"
         flow_ctx = {
             "src_ip": flow.src_ip,
             "dst_ip": flow.dst_ip,
@@ -303,6 +306,8 @@ class SigmaEngine:
             "packets": flow.packets,
             "tcp_flags": flow.tcp_flags,
             "upload_ratio": upload_ratio if upload_ratio is not None else 0.5,
+            "direction": direction,
+            "is_outbound": not is_dst_internal,
         }
 
         sev_map = {

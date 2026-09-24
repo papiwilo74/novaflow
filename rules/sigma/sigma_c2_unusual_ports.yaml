@@ -18,4 +18,5 @@ detection:
       - 4444
     protocol: 6
     upload_ratio: "> 0.70"
+    direction: outbound
   condition: selection

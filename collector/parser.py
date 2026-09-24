@@ -55,6 +55,8 @@ class NetFlowRecord:
     src_mask: int
     dst_mask: int
     flow_version: int = 5
+    campaign_id: Optional[str] = None
+    vector_id: Optional[str] = None
 
 
 class NetFlowParser:

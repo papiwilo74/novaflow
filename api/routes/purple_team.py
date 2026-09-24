@@ -305,3 +305,40 @@ async def run_purple_team_simulation(
         detection_rate_pct=rate_pct,
         results=results,
     )
+
+
+@router.get("/contract")
+async def get_purple_team_contract() -> Dict[str, Any]:
+    """
+    Retorna la especificación formal del contrato Purple Team v1.0.
+    Permite a OmniBreach y herramientas externas descubrir el esquema de eventos y vectores soportados.
+    """
+    from scripts.run_purple_benchmark import build_canonical_campaign
+    campaign, _ = build_canonical_campaign("camp_template_v1")
+    return {
+        "contract_version": "1.0.0",
+        "description": "Especificación formal de campaña ofensiva y telemetría de red OmniBreach x NovaFlow NDR",
+        "campaign_template": campaign.to_dict(),
+        "supported_vectors": PURPLE_TEAM_MATRIX,
+    }
+
+
+class BenchmarkRequest(BaseModel):
+    background_flows: int = 500
+    seed: int = 42
+
+
+@router.post("/benchmark")
+async def run_purple_team_benchmark(
+    req: BenchmarkRequest = BenchmarkRequest(),
+    identity: Identity = Security(get_current_identity),
+) -> Dict[str, Any]:
+    """
+    Ejecuta el arnés de benchmark cuantitativo en vivo:
+    Genera ruido de fondo, evalúa los vectores ofensivos de OmniBreach y computa
+    métricas empíricas reales (MTTD, precisión, recall, F1 y falsos positivos).
+    """
+    from scripts.run_purple_benchmark import run_benchmark
+    metrics = run_benchmark(background_count=req.background_flows, seed=req.seed)
+    return metrics.to_dict()
+
