@@ -190,17 +190,34 @@ class TargetHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
     aggregator: Optional[FlowAggregator] = None
     server_port: int = 8080
+    blocked_ips: set = set()
 
     def log_message(self, format, *args):
         # Redirigir logs estándar de BaseHTTPRequestHandler a logger
         logger.info(f"[HTTP] {self.client_address[0]}:{self.client_address[1]} - {format % args}")
 
     def _handle_request(self, method: str):
+        client_ip, client_port = self.client_address[0], self.client_address[1]
+
+        # Verificar escudo activo de auto-contención SOAR
+        if client_ip in self.blocked_ips:
+            logger.warning(f"[SHIELD BLOCKED] Conexión rechazada de host aislado: {client_ip}")
+            self.send_response(403)
+            self.send_header("Content-Type", "application/json")
+            msg = json.dumps({
+                "status": "BLOCKED",
+                "shield": "NovaFlow NDR SOAR Active Defense",
+                "reason": "Host aislado preventivamente por detección de escaneo/ataque en tiempo real",
+                "attacker_ip": client_ip,
+            }).encode("utf-8")
+            self.send_header("Content-Length", str(len(msg)))
+            self.end_headers()
+            self.wfile.write(msg)
+            return
+
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length) if content_length > 0 else b""
         req_bytes = len(self.raw_requestline) + len(str(self.headers).encode("utf-8")) + len(body)
-
-        client_ip, client_port = self.client_address[0], self.client_address[1]
         server_ip = "127.0.0.1"
 
         # Simular respuestas según endpoint atacado
@@ -289,11 +306,39 @@ class TargetHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         self._handle_request("DELETE")
 
 
-def run_target_mode(listen_port: int, novaflow_host: str, novaflow_port: int):
+def start_soar_sync(novaflow_api_url: str, target_classes: List[Any], poll_interval: float = 1.0):
+    """Sincroniza en segundo plano las IPs aisladas por NovaFlow NDR hacia el escudo perimetral."""
+    def _sync_worker():
+        base_url = novaflow_api_url.rstrip("/")
+        while True:
+            try:
+                req = urllib.request.Request(f"{base_url}/api/v1/soar/containments")
+                with urllib.request.urlopen(req, timeout=1.5) as resp:
+                    if resp.status == 200:
+                        data = json.loads(resp.read().decode("utf-8"))
+                        for item in data.get("containments", []):
+                            ip = item.get("target_ip")
+                            if ip:
+                                for cls in target_classes:
+                                    if ip not in cls.blocked_ips:
+                                        cls.blocked_ips.add(ip)
+                                        logger.warning(f"[SOAR SHIELD] Host aislado en escudo perimetral: {ip} (Motivo: {item.get('reason')})")
+            except Exception:
+                pass
+            time.sleep(poll_interval)
+
+    t = threading.Thread(target=_sync_worker, daemon=True)
+    t.start()
+
+
+def run_target_mode(listen_port: int, novaflow_host: str, novaflow_port: int, novaflow_api: str = "http://127.0.0.1:8000"):
     """Inicia el servidor objetivo interactivo y la sonda NetFlow."""
     emitter = NetFlowEmitter(novaflow_host, novaflow_port)
     aggregator = FlowAggregator(emitter, flush_interval_secs=0.5)
     aggregator.start()
+
+    # Iniciar sincronización de contención SOAR (escudo activo)
+    start_soar_sync(novaflow_api, [TargetHTTPRequestHandler])
 
     TargetHTTPRequestHandler.aggregator = aggregator
     TargetHTTPRequestHandler.server_port = listen_port
@@ -332,11 +377,31 @@ class RelayHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
     aggregator: Optional[FlowAggregator] = None
     relay_target_url: str = "http://127.0.0.1:3000"
     server_port: int = 8080
+    blocked_ips: set = set()
 
     def log_message(self, format, *args):
         logger.info(f"[RELAY] {self.client_address[0]}:{self.client_address[1]} -> {self.relay_target_url} {format % args}")
 
     def _handle_relay(self, method: str):
+        client_ip = self.client_address[0]
+
+        # Verificar escudo activo de auto-contención SOAR
+        if client_ip in self.blocked_ips:
+            logger.warning(f"[SHIELD BLOCKED] Conexión de {client_ip} rechazada por auto-contención SOAR hacia {self.relay_target_url}")
+            self.send_response(403)
+            self.send_header("Content-Type", "application/json")
+            resp_body = json.dumps({
+                "status": "BLOCKED",
+                "shield": "NovaFlow NDR SOAR Active Defense",
+                "reason": "Host aislado preventivamente tras detectar actividad maliciosa en tiempo real",
+                "attacker_ip": client_ip,
+                "target_protected": self.relay_target_url,
+            }).encode("utf-8")
+            self.send_header("Content-Length", str(len(resp_body)))
+            self.end_headers()
+            self.wfile.write(resp_body)
+            return
+
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length) if content_length > 0 else None
 
@@ -407,10 +472,13 @@ class RelayHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         self._handle_relay("DELETE")
 
 
-def run_relay_mode(listen_port: int, relay_target: str, novaflow_host: str, novaflow_port: int):
+def run_relay_mode(listen_port: int, relay_target: str, novaflow_host: str, novaflow_port: int, novaflow_api: str = "http://127.0.0.1:8000"):
     emitter = NetFlowEmitter(novaflow_host, novaflow_port)
     aggregator = FlowAggregator(emitter, flush_interval_secs=0.5)
     aggregator.start()
+
+    # Iniciar sincronización de contención SOAR (escudo activo)
+    start_soar_sync(novaflow_api, [RelayHTTPRequestHandler])
 
     RelayHTTPRequestHandler.aggregator = aggregator
     RelayHTTPRequestHandler.relay_target_url = relay_target
@@ -541,11 +609,12 @@ if __name__ == "__main__":
     parser.add_argument("--interface", type=str, default="127.0.0.1", help="IP de interfaz para modo sniffer")
     parser.add_argument("--novaflow-host", type=str, default="127.0.0.1", help="IP del colector NovaFlow")
     parser.add_argument("--novaflow-port", type=int, default=2055, help="Puerto UDP del colector NovaFlow (2055)")
+    parser.add_argument("--novaflow-api", type=str, default="http://127.0.0.1:8000", help="URL base de la API REST de NovaFlow (8000)")
     args = parser.parse_args()
 
     if args.mode == "target":
-        run_target_mode(args.port, args.novaflow_host, args.novaflow_port)
+        run_target_mode(args.port, args.novaflow_host, args.novaflow_port, args.novaflow_api)
     elif args.mode == "relay":
-        run_relay_mode(args.port, args.relay_target, args.novaflow_host, args.novaflow_port)
+        run_relay_mode(args.port, args.relay_target, args.novaflow_host, args.novaflow_port, args.novaflow_api)
     elif args.mode == "sniffer":
         run_sniffer_mode(args.interface, args.novaflow_host, args.novaflow_port)

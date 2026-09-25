@@ -8,6 +8,7 @@ import json
 import threading
 import time
 import unittest
+import urllib.error
 import urllib.request
 from typing import List
 
@@ -173,6 +174,39 @@ class TestLiveProbeAndTelemetry(unittest.TestCase):
         self.assertEqual(data["status"], "ONLINE")
         self.assertIn("ingestion_modes", data)
         self.assertEqual(data["ingestion_modes"]["netflow_udp_port"], 2055)
+
+    def test_active_shield_blocks_quarantined_host(self):
+        """Valida que la sonda bloquee con 403 Forbidden a IPs que hayan sido aisladas por SOAR."""
+        emitter = DummyNetFlowEmitter()
+        aggregator = FlowAggregator(emitter, flush_interval_secs=10.0)
+        TargetHTTPRequestHandler.aggregator = aggregator
+
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), TargetHTTPRequestHandler)
+        port = server.server_address[1]
+        TargetHTTPRequestHandler.server_port = port
+
+        t = threading.Thread(target=server.serve_forever, daemon=True)
+        t.start()
+
+        req1 = urllib.request.Request(f"http://127.0.0.1:{port}/")
+        with urllib.request.urlopen(req1, timeout=2.0) as resp1:
+            self.assertEqual(resp1.status, 200)
+
+        # Activar aislamiento SOAR sobre la IP del cliente (127.0.0.1)
+        TargetHTTPRequestHandler.blocked_ips.add("127.0.0.1")
+        try:
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(req1, timeout=2.0)
+            self.assertEqual(ctx.exception.code, 403)
+            err_body = json.loads(ctx.exception.read().decode("utf-8"))
+            self.assertEqual(err_body["status"], "BLOCKED")
+            self.assertIn("NovaFlow NDR SOAR", err_body["shield"])
+        finally:
+            TargetHTTPRequestHandler.blocked_ips.discard("127.0.0.1")
+            server.shutdown()
+            server.server_close()
+            aggregator.stop()
+            emitter.close()
 
 
 if __name__ == "__main__":
