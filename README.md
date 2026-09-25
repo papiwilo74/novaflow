@@ -1,11 +1,11 @@
 # NovaFlow NDR: Network Detection, Telemetry & Anomaly Engine
 
 [![Python Version](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://python.org)
-[![Tests](https://img.shields.io/badge/Tests-163%20Passing%20(100%25)-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-173%20Passing%20(100%25)-brightgreen.svg)]()
 [![Pure Python](https://img.shields.io/badge/Dependencies-Zero%20C%20%2F%20Npcap-orange.svg)]()
 [![Standards](https://img.shields.io/badge/Standards-NetFlow%20v5%2Fv9%20%7C%20IPFIX%20%7C%20CEF%20%7C%20OCSF%20%7C%20Sigma%20%7C%20MITRE-blueviolet.svg)]()
 
-**NovaFlow NDR** es una plataforma de análisis de telemetría de red y detección de intrusiones a nivel de transporte (L3/L4/L7), construida en Python utilizando primitivas binarias de bajo nivel (`struct`), concurrencia asíncrona (`asyncio`), baselining estadístico en tiempo constante ($O(1)$) y correlación defensiva **Purple Team**.
+**NovaFlow NDR** es una plataforma de análisis de telemetría de red y detección de intrusiones a nivel de transporte (L3/L4/L7), construida en Python utilizando primitivas binarias de bajo nivel (`struct`), concurrencia asíncrona (`asyncio`), baselining estadístico en tiempo constante ($O(1)$), correlación defensiva **Purple Team** y un **Copiloto SOC IA Híbrido** con inferencia local en GPU NVIDIA GeForce RTX 4060.
 
 ---
 
@@ -32,13 +32,14 @@
 | • Threat Hunting Engine (AST DSL) | • Generador de Tráfico & Benchmark | • Evasiones de Detección  |
 | • Cumplimiento PCI-DSS / ISO 27001| • Detección C2 por Jitter / CV     | • Formato Abierto OCSF    |
 | • Sonda de Red en Vivo & Hooks    | • Contrato Purple Team & Benchmark |                           |
+| • Copiloto SOC IA (RTX 4060)      | • Inferencia Local Ollama Llama3.1 |                           |
 +-----------------------------------+------------------------------------+---------------------------+
 ```
 
 ---
 
 ### 🟢 1. Núcleo Implementado y Probado (Defendible en Entrevista)
-*Código de producción probado exhaustivamente mediante 163 pruebas automatizadas:*
+*Código de producción probado exhaustivamente mediante 173 pruebas automatizadas:*
 
 1. **Parser Binario NetFlow v5 (`collector/parser.py`)**:
    - Decodificación exacta según el RFC de Cisco: cabecera fija de 24 bytes (`!HHIIIIBBH`) y registros de 48 bytes (`!4s4s4sHHIIIIHHBBBBHHBBH`).
@@ -234,7 +235,20 @@ Ejecuta la evaluación formal científica de NovaFlow contra campañas de OmniBr
 # Ejecutar benchmark experimental con 5,000 flujos benignos de fondo
 python scripts/run_purple_benchmark.py --background-flows 5000 --seed 42
 ```
-Los resultados se exportan automáticamente en `reports/purple_benchmark_<timestamp>.json` y `reports/purple_benchmark_<timestamp>.md`.
+### 8. Copiloto SOC IA Híbrido & Threat Hunting (NVIDIA RTX 4060 + Ollama)
+NovaFlow integra un Copiloto autónomo para analistas SOC Tier 2/3 que acelera el triaje, la explicabilidad forense (X-NDR) y la mitigación de incidentes con inferencia local confidencial:
+
+- **Arquitectura de Resiliencia Multi-Nivel (Zero-Crash)**:
+  - **Tier 1 (GPU Local)**: Inferencia en hardware mediante Ollama (`llama3.1:8b`, Q4_K_M) corriendo en la GPU NVIDIA GeForce RTX 4060 (~150 ms de latencia inicial).
+  - **Tier 2 (Cloud LLM)**: Enlace de conmutación por error hacia APIs remotas si se configura clave de entorno.
+  - **Tier 3 (Algorítmico Determinista)**: Motor heurístico en memoria que genera dictámenes técnicos completos y validados si Ollama o la red están caídos, garantizando disponibilidad del 100% sin excepciones 500.
+- **Política Estricta CERO EMOJIS**: Formato analítico, pericial, formal y estructurado en español técnico para entornos corporativos regulados.
+- **Endpoints REST (`/api/v1/copilot/`)**:
+  - `GET /health`: Diagnóstico de GPU, Ollama y latencia de inferencia.
+  - `POST /explain`: Genera informe forense completo a partir de metadatos de red y técnicas MITRE.
+  - `POST /containment`: Asesoría de contención activa y evaluación de impacto colateral en activos críticos.
+  - `POST /hunt-translate`: Compilador de lenguaje natural a sintaxis booleana AST DSL de NovaFlow (`proto == TCP AND bytes > 10M...`) con opción de ejecución inmediata sobre flujos en memoria.
+  - `POST /chat`: Interacción analítica context-aware sobre telemetría y arquitectura del sistema.
 
 ---
 

@@ -124,6 +124,10 @@
         <i data-lucide="share-2" class="w-4 h-4 text-cyan-400"></i> Grafo de Ataque
         <span id="graph-badge" class="ml-1 text-[10px] px-1.5 py-0.2 rounded-full bg-cyan-950/60 text-cyan-400 border border-cyan-800/40 font-mono">TOPOLOGY</span>
       </button>
+      <button onclick="switchTab('copilot')" id="tab-copilot" class="tab-btn py-3 px-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 transition">
+        <i data-lucide="bot" class="w-4 h-4 text-indigo-400"></i> Copiloto SOC IA
+        <span id="copilot-nav-badge" class="ml-1 text-[10px] px-1.5 py-0.2 rounded-full bg-indigo-950/60 text-indigo-400 border border-indigo-800/40 font-mono">RTX 4060</span>
+      </button>
     </div>
   </div>
 
@@ -745,6 +749,152 @@
       </div>
     </section>
 
+    <!-- ============================================================= -->
+    <!-- VIEW 8: HYBRID AI SOC COPILOT & THREAT HUNTER -->
+    <!-- ============================================================= -->
+    <section id="view-copilot" class="space-y-6 hidden">
+      <!-- HEADER STATUS CARD -->
+      <div class="bg-dark-card border border-dark-border rounded-xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 class="text-lg font-bold text-white tracking-wide">Copiloto SOC IA & Threat Hunter</h2>
+            <span id="copilot-health-status" class="px-2.5 py-0.5 rounded text-[11px] font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">INFERENCIA LOCAL</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-1 max-w-3xl">
+            Asistente pericial autónomo Tier 2/3 para explicabilidad de incidentes (X-NDR), recomendación de contención activa SOAR
+            y compilación de Threat Hunting desde lenguaje natural al DSL de flujos de NovaFlow con aceleración GPU local.
+          </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-3 text-xs font-mono">
+          <div class="bg-slate-900/80 px-3 py-2 rounded-lg border border-dark-border">
+            <span class="text-slate-400">GPU:</span>
+            <span id="copilot-gpu-badge" class="font-bold text-emerald-400 ml-1">NVIDIA RTX 4060</span>
+          </div>
+          <div class="bg-slate-900/80 px-3 py-2 rounded-lg border border-dark-border">
+            <span class="text-slate-400">MODELO:</span>
+            <span id="copilot-model-badge" class="font-bold text-white ml-1">llama3.1:8b</span>
+          </div>
+          <div class="bg-slate-900/80 px-3 py-2 rounded-lg border border-dark-border">
+            <span class="text-slate-400">LATENCIA:</span>
+            <span id="copilot-latency-badge" class="font-bold text-cyan-300 ml-1">-- ms</span>
+          </div>
+          <button onclick="loadCopilotHealth()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition" title="Refrescar estado Copiloto">
+            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- LEFT: INTERACTIVE SOC CHAT -->
+        <div class="bg-dark-card border border-dark-border rounded-xl p-5 flex flex-col justify-between" style="min-height: 520px;">
+          <div>
+            <div class="flex items-center justify-between border-b border-dark-border pb-3 mb-3">
+              <div class="flex items-center gap-2">
+                <i data-lucide="message-square" class="w-4 h-4 text-indigo-400"></i>
+                <h3 class="text-sm font-bold text-white">Canal de Consulta con el Analista L3</h3>
+              </div>
+              <span class="text-[10px] font-mono text-slate-400">Context-Aware SOC Agent</span>
+            </div>
+            
+            <!-- Quick prompt buttons -->
+            <div class="flex flex-wrap gap-1.5 mb-3">
+              <button onclick="sendQuickChat('¿Cómo calcula NovaFlow los Z-scores con el algoritmo de Welford?')" class="text-[10px] px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-mono transition">
+                Algoritmo Welford
+              </button>
+              <button onclick="sendQuickChat('¿Qué criterios diferencian un falso positivo en escaneos de puertos?')" class="text-[10px] px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-mono transition">
+                Criterios Falso Positivo
+              </button>
+              <button onclick="sendQuickChat('¿Cuáles son los vectores de ataque del contrato Purple Team v1.0?')" class="text-[10px] px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-mono transition">
+                Contrato Purple Team
+              </button>
+            </div>
+
+            <!-- Messages Container -->
+            <div id="copilot-chat-container" class="space-y-3 max-h-80 overflow-y-auto custom-scrollbar pr-2 mb-3">
+              <div class="bg-slate-900/80 p-3 rounded-lg border border-dark-border text-xs leading-relaxed text-slate-200">
+                <span class="font-bold text-indigo-400 block text-[11px] mb-1">Copiloto SOC NovaFlow (Tier 3):</span>
+                Bienvenido al centro de operaciones. Inferencia híbrida en GPU NVIDIA RTX 4060 activa. Selecciona una consulta sugerida o ingresa tu pregunta técnica para recibir un análisis pericial sin emojis.
+              </div>
+            </div>
+          </div>
+
+          <!-- Input bar -->
+          <div class="border-t border-dark-border pt-3">
+            <div class="flex gap-2">
+              <input id="copilot-chat-input" type="text" placeholder="Formula una consulta técnica sobre la red, incidentes o arquitectura..." onkeydown="if(event.key==='Enter') sendCopilotChat()" class="flex-1 bg-slate-900 text-xs border border-dark-border rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-sans" />
+              <button id="btn-copilot-send" onclick="sendCopilotChat()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition">
+                <i data-lucide="send" class="w-3.5 h-3.5"></i> Enviar
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: THREAT HUNTING NATURAL LANGUAGE TRANSLATOR -->
+        <div class="bg-dark-card border border-dark-border rounded-xl p-5 flex flex-col justify-between" style="min-height: 520px;">
+          <div>
+            <div class="flex items-center justify-between border-b border-dark-border pb-3 mb-3">
+              <div class="flex items-center gap-2">
+                <i data-lucide="terminal" class="w-4 h-4 text-emerald-400"></i>
+                <h3 class="text-sm font-bold text-white">Compilador de Threat Hunting en Lenguaje Natural</h3>
+              </div>
+              <span class="text-[10px] font-mono text-emerald-400">NL &rarr; NovaFlow DSL</span>
+            </div>
+
+            <p class="text-xs text-slate-400 mb-3">
+              Escribe tus hipótesis de caza en lenguaje humano. El Copiloto traducirá tu intención en una expresión booleana formal del DSL y buscará flujos coincidentes en tiempo real.
+            </p>
+
+            <!-- Quick hunting suggestions -->
+            <div class="flex flex-wrap gap-1.5 mb-3">
+              <button onclick="setHuntInput('Conexiones TCP con flag SYN y bytes mayores a 10 megas')" class="text-[10px] px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-mono transition">
+                SYN y >10M
+              </button>
+              <button onclick="setHuntInput('Flujos en puerto 445 SMB con mas de 50000 bytes')" class="text-[10px] px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-mono transition">
+                Puerto 445 SMB
+              </button>
+              <button onclick="setHuntInput('Trafico DNS en puerto 53 con mas de 4000 bytes')" class="text-[10px] px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-mono transition">
+                Túnel DNS >4K
+              </button>
+            </div>
+
+            <div class="space-y-2 mb-4">
+              <label class="text-[11px] font-mono text-slate-400 uppercase">Consulta en Lenguaje Humano:</label>
+              <textarea id="hunt-nl-input" rows="3" placeholder="Ej: Conexiones TCP con flag SYN y bytes mayores a 10 megas hacia servidores externos..." class="w-full bg-slate-900 text-xs border border-dark-border rounded-lg p-3 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-sans"></textarea>
+            </div>
+
+            <!-- Action buttons -->
+            <div class="flex gap-2 mb-4">
+              <button id="btn-hunt-translate" onclick="runHuntTranslate(false)" class="flex-1 px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+                <i data-lucide="code" class="w-3.5 h-3.5"></i> Traducir a DSL
+              </button>
+              <button id="btn-hunt-execute" onclick="runHuntTranslate(true)" class="flex-1 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+                <i data-lucide="play" class="w-3.5 h-3.5"></i> Traducir y Cazar
+              </button>
+            </div>
+
+            <!-- Translation and Results Panel -->
+            <div id="hunt-result-panel" class="hidden space-y-3">
+              <div class="bg-slate-950 p-3 rounded-lg border border-emerald-500/40 font-mono text-xs">
+                <div class="flex items-center justify-between text-[10px] text-slate-400 border-b border-slate-800 pb-1 mb-1.5">
+                  <span>DSL COMPILADO:</span>
+                  <span id="hunt-result-stats" class="text-emerald-400 font-mono"></span>
+                </div>
+                <code id="hunt-compiled-dsl" class="text-emerald-300 text-xs font-bold block"></code>
+              </div>
+
+              <!-- Matched Flows Output -->
+              <div id="hunt-matches-container" class="hidden space-y-1.5">
+                <div class="text-[11px] font-mono uppercase text-slate-400 flex items-center justify-between">
+                  <span>Flujos Coincidentes (<span id="hunt-match-count">0</span>):</span>
+                </div>
+                <div id="hunt-matches-list" class="max-h-40 overflow-y-auto custom-scrollbar font-mono text-[10px] space-y-1 bg-slate-950 p-2 rounded-lg border border-slate-800"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <!-- MODAL: DETALLE FORENSE DEL INCIDENTE -->
@@ -832,6 +982,26 @@
         <div>
           <label class="text-slate-400 text-[11px] block uppercase font-mono mb-1">Métricas y Telemetría del Ataque</label>
           <pre id="modal-metrics" class="bg-slate-950 p-3 rounded-lg font-mono text-emerald-400 border border-slate-800 text-[11px] overflow-x-auto"></pre>
+        </div>
+
+        <!-- Copiloto IA SOC Section -->
+        <div class="space-y-2 border-t border-dark-border pt-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <i data-lucide="bot" class="w-4 h-4 text-indigo-400"></i>
+              <label class="text-slate-300 text-xs font-semibold uppercase font-mono">Copiloto IA SOC (NVIDIA RTX 4060)</label>
+            </div>
+            <button id="btn-modal-copilot-explain" onclick="explainCurrentModalAlert()" class="px-2.5 py-1 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 text-[11px] font-medium transition flex items-center gap-1.5">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Dictamen Pericial IA
+            </button>
+          </div>
+          <div id="modal-copilot-result" class="hidden bg-slate-950 p-3.5 rounded-lg font-mono text-slate-200 border border-indigo-500/30 text-[11px] space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
+            <div class="flex items-center justify-between text-[10px] text-slate-400 border-b border-slate-800 pb-1 font-mono">
+              <span id="modal-copilot-backend">Backend: ollama_local_gpu</span>
+              <span id="modal-copilot-latency">Latencia: -- ms</span>
+            </div>
+            <div id="modal-copilot-text" class="whitespace-pre-wrap leading-relaxed font-sans text-xs text-slate-300"></div>
+          </div>
         </div>
 
         <div class="flex items-center justify-between pt-2 border-t border-dark-border">
@@ -1306,6 +1476,10 @@
           }
         } catch(e) {}
 
+        // Reset Copilot Box
+        const copilotResult = document.getElementById('modal-copilot-result');
+        if (copilotResult) copilotResult.classList.add('hidden');
+
         document.getElementById('incident-modal').classList.remove('hidden');
       } catch (e) {}
     }
@@ -1344,6 +1518,41 @@
     function closeIncidentModal() {
       document.getElementById('incident-modal').classList.add('hidden');
       currentModalAlertId = null;
+    }
+
+    async function explainCurrentModalAlert() {
+      if (!currentModalAlertId) return;
+      const btn = document.getElementById('btn-modal-copilot-explain');
+      const resBox = document.getElementById('modal-copilot-result');
+      const textEl = document.getElementById('modal-copilot-text');
+      const backendEl = document.getElementById('modal-copilot-backend');
+      const latencyEl = document.getElementById('modal-copilot-latency');
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="inline-block animate-spin mr-1">⌛</span> Analizando con IA...';
+
+      try {
+        const res = await fetch('/api/v1/copilot/explain', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ alert_id: currentModalAlertId })
+        });
+        const data = await res.json();
+        if (data.success) {
+          resBox.classList.remove('hidden');
+          textEl.textContent = data.report_markdown;
+          backendEl.textContent = `Backend: ${data.backend_used}`;
+          latencyEl.textContent = `Latencia: ${data.latency_ms} ms`;
+        } else {
+          showToast('Error al generar informe con Copiloto IA', 'error');
+        }
+      } catch (err) {
+        showToast('Error de comunicación con el Copiloto SOC', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Dictamen Pericial IA';
+        lucide.createIcons();
+      }
     }
 
     async function updateAlertState(newStatus) {
@@ -1893,7 +2102,7 @@
 
     function switchTab(tabId) {
       currentTab = tabId;
-      ['overview', 'talkers', 'incidents', 'flows', 'purple', 'mitre', 'graph'].forEach(t => {
+      ['overview', 'talkers', 'incidents', 'flows', 'purple', 'mitre', 'graph', 'copilot'].forEach(t => {
         const view = document.getElementById(`view-${t}`);
         const btn = document.getElementById(`tab-${t}`);
         if (!view || !btn) return;
@@ -1923,6 +2132,157 @@
       else if (currentTab === 'purple') loadPurpleTeam();
       else if (currentTab === 'mitre') loadMitreHeatmap();
       else if (currentTab === 'graph') loadGraphTopology();
+      else if (currentTab === 'copilot') loadCopilotHealth();
+    }
+
+    async function loadCopilotHealth() {
+      try {
+        const res = await fetch('/api/v1/copilot/health');
+        if (!res.ok) return;
+        const data = await res.json();
+        
+        const statusEl = document.getElementById('copilot-health-status');
+        const gpuEl = document.getElementById('copilot-gpu-badge');
+        const modelEl = document.getElementById('copilot-model-badge');
+        const latencyEl = document.getElementById('copilot-latency-badge');
+        const navBadge = document.getElementById('copilot-nav-badge');
+
+        if (gpuEl) gpuEl.textContent = data.gpu_detected ? 'NVIDIA RTX 4060' : 'CPU / Desconocido';
+        if (modelEl) modelEl.textContent = data.configured_model || 'llama3.1:8b';
+        if (latencyEl) latencyEl.textContent = `${data.latency_ms} ms`;
+
+        if (data.status === 'HEALTHY' && data.active_tier === 'TIER_1_LOCAL_GPU') {
+          if (statusEl) {
+            statusEl.className = 'px-2.5 py-0.5 rounded text-[11px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+            statusEl.textContent = 'GPU ACTIVA (TIER 1)';
+          }
+          if (navBadge) {
+            navBadge.className = 'ml-1 text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-800/40 font-mono';
+            navBadge.textContent = 'RTX 4060';
+          }
+        } else {
+          if (statusEl) {
+            statusEl.className = 'px-2.5 py-0.5 rounded text-[11px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40';
+            statusEl.textContent = data.active_tier || 'FALLBACK';
+          }
+          if (navBadge) {
+            navBadge.className = 'ml-1 text-[10px] px-1.5 py-0.2 rounded-full bg-amber-950/60 text-amber-400 border border-amber-800/40 font-mono';
+            navBadge.textContent = 'FALLBACK';
+          }
+        }
+      } catch (e) {}
+    }
+
+    async function sendCopilotChat() {
+      const input = document.getElementById('copilot-chat-input');
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+
+      const container = document.getElementById('copilot-chat-container');
+      const userBubble = document.createElement('div');
+      userBubble.className = 'bg-indigo-950/40 p-3 rounded-lg border border-indigo-500/30 text-xs leading-relaxed text-indigo-100 ml-6';
+      userBubble.innerHTML = `<span class="font-bold text-indigo-300 block text-[11px] mb-0.5 font-mono">Analista L1/L2:</span>${text}`;
+      container.appendChild(userBubble);
+
+      const loadingBubble = document.createElement('div');
+      loadingBubble.className = 'bg-slate-900/80 p-3 rounded-lg border border-dark-border text-xs text-slate-400 mr-6';
+      loadingBubble.innerHTML = '<span class="inline-block animate-spin mr-1">⌛</span> Analizando telemetría y generando dictamen...';
+      container.appendChild(loadingBubble);
+      container.scrollTop = container.scrollHeight;
+
+      const btn = document.getElementById('btn-copilot-send');
+      if (btn) btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/v1/copilot/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text, include_system_context: true })
+        });
+        const data = await res.json();
+        loadingBubble.remove();
+
+        const aiBubble = document.createElement('div');
+        aiBubble.className = 'bg-slate-900/90 p-3 rounded-lg border border-slate-700 text-xs leading-relaxed text-slate-200 mr-4';
+        aiBubble.innerHTML = `
+          <div class="flex items-center justify-between text-[10px] font-mono text-slate-400 border-b border-slate-800 pb-1 mb-1.5">
+            <span class="font-bold text-indigo-400">Copiloto SOC (${data.backend_used || 'IA'}):</span>
+            <span>${data.latency_ms || 0} ms</span>
+          </div>
+          <div class="whitespace-pre-wrap font-sans text-xs">${data.response || 'Sin respuesta.'}</div>
+        `;
+        container.appendChild(aiBubble);
+      } catch (err) {
+        loadingBubble.remove();
+        showToast('Error al consultar el Copiloto IA', 'error');
+      } finally {
+        if (btn) btn.disabled = false;
+        container.scrollTop = container.scrollHeight;
+      }
+    }
+
+    function sendQuickChat(query) {
+      document.getElementById('copilot-chat-input').value = query;
+      sendCopilotChat();
+    }
+
+    function setHuntInput(query) {
+      document.getElementById('hunt-nl-input').value = query;
+    }
+
+    async function runHuntTranslate(execute) {
+      const input = document.getElementById('hunt-nl-input');
+      const query = input.value.trim();
+      if (!query) {
+        showToast('Ingresa una consulta en lenguaje natural', 'warning');
+        return;
+      }
+
+      const btn = execute ? document.getElementById('btn-hunt-execute') : document.getElementById('btn-hunt-translate');
+      const origText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="inline-block animate-spin mr-1">⌛</span> Compilando...';
+
+      try {
+        const res = await fetch('/api/v1/copilot/hunt-translate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: query, execute: execute })
+        });
+        const data = await res.json();
+
+        const panel = document.getElementById('hunt-result-panel');
+        panel.classList.remove('hidden');
+        document.getElementById('hunt-compiled-dsl').textContent = data.translated_dsl || 'N/A';
+        document.getElementById('hunt-result-stats').textContent = `${data.backend_used} (${data.latency_ms} ms)`;
+
+        const matchesCont = document.getElementById('hunt-matches-container');
+        const matchesList = document.getElementById('hunt-matches-list');
+
+        if (execute && data.executed) {
+          matchesCont.classList.remove('hidden');
+          document.getElementById('hunt-match-count').textContent = data.matched_flows_count || 0;
+          if (data.matches && data.matches.length > 0) {
+            matchesList.innerHTML = data.matches.map(m => `
+              <div class="p-1.5 rounded bg-slate-900 border border-slate-800 flex items-center justify-between">
+                <span>${m.src_ip}:${m.src_port || m.spt} &rarr; ${m.dst_ip}:${m.dst_port || m.dpt} [${m.proto || m.protocol}]</span>
+                <span class="text-emerald-400 font-bold">${formatBytes(m.bytes || 0)} (${m.packets || 0} pkts)</span>
+              </div>
+            `).join('');
+          } else {
+            matchesList.innerHTML = '<div class="text-slate-500 py-1">No se encontraron flujos coincidentes en la ventana actual.</div>';
+          }
+        } else {
+          matchesCont.classList.add('hidden');
+        }
+      } catch (e) {
+        showToast('Error al traducir o ejecutar Threat Hunting', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = origText;
+        lucide.createIcons();
+      }
     }
 
     // INITIAL SETUP
@@ -1932,10 +2292,12 @@
       connectWebSocket();
       loadOverviewMetrics();
       loadMitreHeatmap();
+      loadCopilotHealth();
       // Polling de respaldo cada 5s
       setInterval(() => {
         loadOverviewMetrics();
         if (currentTab === 'mitre') loadMitreHeatmap();
+        if (currentTab === 'copilot') loadCopilotHealth();
       }, 5000);
     });
   </script>
