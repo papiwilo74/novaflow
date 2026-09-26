@@ -15,6 +15,7 @@ from detector.engine import DetectionEngine
 from detector.models import SecurityAlert
 from detector.entity import EntityLedger
 from detector.dhcp_tracker import DHCPLeaseTracker
+from detector.campaign_correlator import BayesianCampaignEngine
 from storage.columnar import ColumnarFlowStorage
 
 logger = logging.getLogger("NovaFlow.API.State")
@@ -62,6 +63,7 @@ class SystemState:
         self.columnar_storage = ColumnarFlowStorage()
         self.entity_ledger = EntityLedger()
         self.dhcp_tracker = DHCPLeaseTracker(self.entity_ledger)
+        self.campaign_engine = BayesianCampaignEngine()
 
         # Métricas en tiempo real
         self.start_time = time.time()
@@ -122,6 +124,11 @@ class SystemState:
         """Callback invocado cuando el motor de detección genera una alerta."""
         # Actualizar puntaje de riesgo de la entidad involucrada
         self.entity_ledger.record_alert(alert)
+
+        # Correlación causal multi-etapa en motor bayesiano de campañas
+        _, escalated_alert = self.campaign_engine.ingest_alert(alert)
+        if escalated_alert:
+            self.entity_ledger.record_alert(escalated_alert)
 
         # Enviar inmediatamente por WebSocket de forma asíncrona
         try:

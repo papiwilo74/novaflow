@@ -105,6 +105,22 @@ MITRE_MAPPING: Dict[AlertCategory, MitreAttackRef] = {
         subtechnique_name="Symmetric Cryptography",
         url="https://attack.mitre.org/techniques/T1573/001/",
     ),
+    AlertCategory.DGA_DOMAIN: MitreAttackRef(
+        tactic="Command and Control",
+        technique_id="T1568",
+        technique_name="Dynamic Resolution",
+        subtechnique_id="T1568.002",
+        subtechnique_name="Domain Generation Algorithms",
+        url="https://attack.mitre.org/techniques/T1568/002/",
+    ),
+    AlertCategory.IDENTITY_ATTACK: MitreAttackRef(
+        tactic="Credential Access",
+        technique_id="T1558",
+        technique_name="Steal or Forge Kerberos Tickets",
+        subtechnique_id="T1558.003",
+        subtechnique_name="Kerberoasting",
+        url="https://attack.mitre.org/techniques/T1558/003/",
+    ),
 }
 
 

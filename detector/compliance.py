@@ -321,6 +321,66 @@ COMPLIANCE_MAPPING: Dict[AlertCategory, List[ComplianceRef]] = {
             audit_focus="Detección de balizas y túneles TLS sin romper la privacidad corporativa.",
         ),
     ],
+    AlertCategory.DGA_DOMAIN: [
+        ComplianceRef(
+            standard="PCI-DSS v4.0",
+            requirement_id="Req 11.4.1",
+            title="Detección de Canales C2 mediante Dominios Dinámicos (DGA)",
+            description="Supervisión continua de tráfico DNS para detectar resolución de dominios algorítmicos y evasión por Fast-Flux.",
+            audit_focus="Registros de dominios DGA consultados y alertas con técnicas MITRE T1568.",
+        ),
+        ComplianceRef(
+            standard="ISO/IEC 27001:2022",
+            requirement_id="Control A.8.23",
+            title="Filtrado y Supervisión de Servicios de Nombres (DNS)",
+            description="Control e inspección de tráfico DNS para prevenir conexiones con infraestructura de mando y control hostil.",
+            audit_focus="Métricas de n-gramas lingüísticos y detección de rotación rápida de IPs.",
+        ),
+        ComplianceRef(
+            standard="NIST CSF 2.0",
+            requirement_id="DE.CM-01",
+            title="Monitoreo de Infraestructura de Resolución Dinámica",
+            description="Monitoreo continuo de solicitudes DNS para identificar comunicaciones adversarias.",
+            audit_focus="Alertas de dominios DGA y métricas de dispersión Fast-Flux.",
+        ),
+        ComplianceRef(
+            standard="CIS Controls v8",
+            requirement_id="Control 13.3",
+            title="Deploy Network Intrusion Detection for DNS Traffic",
+            description="Inspección de tráfico de red para bloquear canales de comunicación algorítmicos.",
+            audit_focus="Detección de consultas a dominios con alta entropía y patrones DGA.",
+        ),
+    ],
+    AlertCategory.IDENTITY_ATTACK: [
+        ComplianceRef(
+            standard="PCI-DSS v4.0",
+            requirement_id="Req 10.4.1 / Req 11.4.1",
+            title="Detección de Ataques a Infraestructura de Autenticación y Credenciales",
+            description="Monitoreo de protocolos de autenticación (Kerberos/MSRPC) para alertar sobre robo de tickets y extracción de credenciales.",
+            audit_focus="Registros de solicitudes TGS RC4 anómalas (Kerberoasting) e intentos DCSync en el entorno CDE.",
+        ),
+        ComplianceRef(
+            standard="ISO/IEC 27001:2022",
+            requirement_id="Control A.8.16 / Control A.9.4",
+            title="Protección de Información de Autenticación y Gestión de Acceso",
+            description="Supervisión de intercambios criptográficos de autenticación para prevenir la captura no autorizada de credenciales.",
+            audit_focus="Trazas forenses de peticiones AS-REQ sin pre-autenticación y llamadas a interfaces DRSUAPI.",
+        ),
+        ComplianceRef(
+            standard="NIST CSF 2.0",
+            requirement_id="PR.AC-07",
+            title="Monitoreo y Protección de Mecanismos de Autenticación",
+            description="La infraestructura de identidad corporativa se protege y monitorea activamente frente a ataques de tickets.",
+            audit_focus="Alertas de abuso de Kerberos correlacionadas con MITRE T1558 y T1003.",
+        ),
+        ComplianceRef(
+            standard="CIS Controls v8",
+            requirement_id="Control 6.8",
+            title="Centralize Access Control & Authentication Event Monitoring",
+            description="Monitoreo centralizado de anomalías de autenticación en controladores de dominio.",
+            audit_focus="Alertas en tiempo real ante intentos de extracción de hashes y tickets TGS.",
+        ),
+    ],
 }
 
 

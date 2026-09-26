@@ -1,7 +1,7 @@
 # NovaFlow NDR: Network Detection, Telemetry & Anomaly Engine
 
 [![Python Version](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://python.org)
-[![Tests](https://img.shields.io/badge/Tests-193%20Passing%20(100%25)-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-210%20Passing%20(100%25)-brightgreen.svg)]()
 [![Pure Python](https://img.shields.io/badge/Dependencies-Zero%20C%20%2F%20Npcap-orange.svg)]()
 [![Standards](https://img.shields.io/badge/Standards-NetFlow%20v5%2Fv9%20%7C%20IPFIX%20%7C%20CEF%20%7C%20OCSF%20%7C%20Sigma%20%7C%20MITRE-blueviolet.svg)]()
 
@@ -39,7 +39,7 @@
 ---
 
 ### 🟢 1. Núcleo Implementado y Probado (Defendible en Entrevista)
-*Código de producción probado exhaustivamente mediante 173 pruebas automatizadas:*
+*Código de producción probado exhaustivamente mediante 210 pruebas automatizadas:*
 
 1. **Parser Binario NetFlow v5 (`collector/parser.py`)**:
    - Decodificación exacta según el RFC de Cisco: cabecera fija de 24 bytes (`!HHIIIIBBH`) y registros de 48 bytes (`!4s4s4sHHIIIIHHBBBBHHBBH`).
@@ -287,6 +287,59 @@ NovaFlow NDR incorpora los 4 pilares tecnológicos que caracterizan a soluciones
 - **Sonda C eBPF/XDP (`collector/ebpf/novaflow_xdp.bpf.c`)**: Programa de kernel C con gancho directo en controlador de red (NIC), mapas hash `BPF_MAP_TYPE_HASH` para tabla de flujos activa y `BPF_MAP_TYPE_RINGBUF` para despacho asíncrono a userspace.
 - **Cargador híbrido (`collector/ebpf_loader.py`)**: Modo nativo para Linux con privilegios y emulador de Ring Buffer de alto rendimiento en espacio de usuario para Windows/macOS.
 - **Arnés de benchmarking (`scripts/run_ebpf_benchmark.py`)**: Medición empírica de velocidad de ingesta (>470,000 PPS y >320 Mbps en memoria sin descarte).
+
+### 10. Modernización Enterprise Avanzada: DGA/Fast-Flux, L7 Active Directory, Correlador Bayesiano y Mitigación BGP/Zero-Trust
+
+Para equiparar las capacidades analíticas de plataformas comerciales de grado Tier-1 (*Corelight, ExtraHop Reveal(x), Vectra AI, Darktrace*), NovaFlow NDR implementa cuatro pilares adicionales:
+
+#### Pilar 1: Motor DGA (N-Gramas) & Fast-Flux DNS
+- **Modelado Estadístico de Dominios (`detector/dga.py`)**:
+  - Evaluación lingüística por modelo de bigramas entrenado sobre dominios benignos comunes.
+  - Cálculo de perplejidad inversa, ratio de vocales, densidad de consonantes consecutivas y entropía de Shannon.
+  - Función de penalización por longitud para desenmascarar algoritmos DGA pseudoaleatorios (e.g., Conficker, Necurs, Mirai, Gameover Zeus) sin depender de listas estáticas.
+- **Rastreador de Rotación Fast-Flux (`detector/dga.py`)**:
+  - Detección de infraestructuras C2 resilientes mediante seguimiento temporal de rotación acelerada de direcciones IP por FQDN.
+  - Umbrales configurables de rotación multired (/24 y /16) con TTL promedio anómalo ($TTL < 300\text{ s}$).
+- **Regla Detectora y Taxonomía (`detector/rules/dga_threat.py`)**:
+  - Emisión de alertas de categoría `DGA_DOMAIN` asociadas a MITRE ATT&CK T1568.002 (Dynamic Resolution: Domain Generation Algorithms) y T1568.001 (Fast Flux DNS).
+
+#### Pilar 2: Inspección L7 de Protocolos de Identidad (Active Directory / Kerberos & DCE-RPC/SMB)
+- **Parser Puro ASN.1 DER para Kerberos (`collector/l7_parsers.py`)**:
+  - Decodificación binaria de mensajes AS-REQ (0x0A) y TGS-REQ (0x0C) sobre el puerto 88 (TCP/UDP).
+  - Extracción de realm, service principal names (sname), cifrados negociados (`etype`) y atributos de preautenticación (`padata`).
+- **Parser de Mensajes DCE-RPC sobre SMB (`collector/l7_parsers.py`)**:
+  - Decodificación de transacciones RPC v5.0 sobre puertos 135 y 445 (SMB Named Pipes).
+  - Identificación de operaciones de vinculación (Bind) y llamadas (Request) con resolución de UUIDs de interfaces de red críticas (`drsuapi`, `svcctl`, `samr`, `lsarpc`).
+- **Regla Detectora de Amenazas a Identidad (`detector/rules/ad_threat.py`)**:
+  - **Kerberoasting**: Solicitudes TGS-REQ solicitando cifrado débil RC4-HMAC (`etype 23`) contra SPNs de servicio para extracción de hashes fuera de línea (MITRE T1558.003).
+  - **AS-REP Roasting**: Solicitudes AS-REQ con preautenticación deshabilitada (`PA-ENC-TIMESTAMP` ausente) para comprometer cuentas vulnerables (MITRE T1558.004).
+  - **DCSync / Replicación Forzada**: Llamadas directas a la interfaz `drsuapi` (Directory Replication Service) para volcado no autorizado de credenciales NTDS.dit (MITRE T1003.006).
+  - **PsExec Lateral Movement**: Conexiones a `svcctl` (Service Control Manager) para creación remota de servicios e inyección de procesos (MITRE T1543.003 / T1021.002).
+
+#### Pilar 3: Correlador Causal Multi-Etapa de Kill Chain Bayesiano / Markoviano
+- **Motor Causal de Campañas (`detector/campaign_correlator.py`)**:
+  - Mapeo de incidentes individuales hacia fases formales de intrusión: *Reconnaissance*, *Resource Development*, *Initial Access*, *Execution*, *Persistence*, *Credential Access*, *Lateral Movement*, *Command and Control*, *Exfiltration*, *Impact*.
+  - Matriz de probabilidades de transición markoviana ($P(S_{t} \mid S_{t-1})$) que premia secuencias de ataque lógicas según el modelo MITRE ATT&CK.
+  - Modelo de actualización de probabilidad bayesiana acumulada con decaimiento temporal y factor de escalado multiplicativo ($odds \leftarrow odds \cdot L_i$).
+  - Escalado automático a incidente de severidad `CRITICAL` con categoría `ATTACK_CAMPAIGN` cuando la probabilidad posterior alcanza o supera $P \ge 0.85$.
+- **Endpoints REST (`/api/v1/campaigns/`)**:
+  - `GET /api/v1/campaigns`: Consulta de campañas de intrusión activas ordenadas por probabilidad causal.
+  - `GET /api/v1/campaigns/{id}`: Detalle forense de la campaña, fases comprometidas y secuencia temporal de alertas correlacionadas.
+  - `POST /api/v1/campaigns/{id}/status`: Transición controlada del ciclo de vida del caso (`ACTIVE`, `INVESTIGATING`, `CONTAINED`, `CLOSED`).
+
+#### Pilar 4: Mitigación Activa en Borde BGP Flowspec (RFC 5575) y Políticas Zero-Trust Kubernetes
+- **Generador de Reglas BGP Flowspec (`detector/edge_mitigation.py`)**:
+  - Generación de políticas SDN perimetrales multi-sintaxis para contención a velocidad de hardware:
+    - **ExaBGP**: `flow route { match { ... } then { discard; } }`.
+    - **Juniper Junos**: Sintaxis jerárquica `routing-options flow route ... then discard`.
+    - **Cisco IOS-XR**: Bloques de configuración formal `class-map` y `policy-map type pbr`.
+  - Acciones soportadas: `DISCARD` (descarte inmediato), `RATE_LIMIT` (limitación a X bps), `REDIRECT_VRF` (desvío a red de cuarentena o sandbox) y `TRAFFIC_MARKING` (etiquetado DSCP).
+- **Generador de Políticas Zero-Trust Cloud-Native (`detector/edge_mitigation.py`)**:
+  - **Cilium NetworkPolicy (Cilium CNI L7)**: Manifiesto YAML `cilium.io/v2` con aislamiento por endpoint selector, bloqueo de egress hostil y deny-all por defecto.
+  - **Kubernetes NetworkPolicy (K8s Core)**: Manifiesto YAML estándar `networking.k8s.io/v1` con aislamiento ingress/egress a nivel de pod.
+- **Endpoints REST (`/api/v1/mitigation/`)**:
+  - `POST /api/v1/mitigation/bgp-flowspec`: Generación inmediata de reglas BGP Flowspec a partir de una alerta o parámetros ad-hoc.
+  - `POST /api/v1/mitigation/cloud-native`: Generación de manifiestos YAML declarativos para orquestadores Kubernetes / Cilium.
 
 ---
 
