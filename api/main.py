@@ -39,6 +39,8 @@ from api.routes.sigma import router as sigma_router
 from api.routes.hunting import router as hunting_router
 from api.routes.telemetry import router as telemetry_router
 from api.routes.copilot import router as copilot_router
+from api.routes.analytics import router as analytics_router
+from api.routes.entities import router as entities_router
 from detector.engine import DetectionEngine
 
 static_dir = os.path.join(os.path.dirname(__file__), "static")
@@ -104,6 +106,8 @@ app.include_router(sigma_router, prefix="/api/v1")
 app.include_router(hunting_router, prefix="/api/v1")
 app.include_router(telemetry_router, prefix="/api/v1")
 app.include_router(copilot_router, prefix="/api/v1")
+app.include_router(analytics_router, prefix="/api/v1")
+app.include_router(entities_router, prefix="/api/v1")
 app.include_router(observability_router)  # Expone /metrics para Prometheus
 app.include_router(ws_router)
 

@@ -1,7 +1,7 @@
 # NovaFlow NDR: Network Detection, Telemetry & Anomaly Engine
 
 [![Python Version](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://python.org)
-[![Tests](https://img.shields.io/badge/Tests-173%20Passing%20(100%25)-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-193%20Passing%20(100%25)-brightgreen.svg)]()
 [![Pure Python](https://img.shields.io/badge/Dependencies-Zero%20C%20%2F%20Npcap-orange.svg)]()
 [![Standards](https://img.shields.io/badge/Standards-NetFlow%20v5%2Fv9%20%7C%20IPFIX%20%7C%20CEF%20%7C%20OCSF%20%7C%20Sigma%20%7C%20MITRE-blueviolet.svg)]()
 
@@ -250,7 +250,45 @@ NovaFlow integra un Copiloto autónomo para analistas SOC Tier 2/3 que acelera e
   - `POST /hunt-translate`: Compilador de lenguaje natural a sintaxis booleana AST DSL de NovaFlow (`proto == TCP AND bytes > 10M...`) con opción de ejecución inmediata sobre flujos en memoria.
   - `POST /chat`: Interacción analítica context-aware sobre telemetría y arquitectura del sistema.
 
+### 9. Las 4 Fases de Modernización Enterprise (Comparativa con Plataformas Comerciales)
+
+NovaFlow NDR incorpora los 4 pilares tecnológicos que caracterizan a soluciones de grado empresarial (Corelight/Zeek, Vectra AI, Darktrace, ExtraHop Reveal(x), Cisco Stealthwatch):
+
+#### Fase 1: Extractor de Huellas Criptográficas JA4 / TLS ClientHello & ETA (sin descifrado SSL)
+- **Parser binario zero-copy (`collector/tls_parser.py`)**: Extracción de registros TLS Handshake (0x16) y ClientHello (0x01) en cable, con soporte para filtrado RFC 8701 GREASE, SNI, ALPN, curvas elípticas y versiones negociadas.
+- **Generador canónico FoxIO JA4 & JA3 (`detector/ja4.py`)**: Computa huellas en formato `[proto][ver][sni][ciphers][exts][alpn]_[hash_ciphers]_[hash_exts]` y digest MD5 JA3 retrocompatible.
+- **Perfiles SPLT (Sequence of Packet Lengths and Times)**: Medición de entropía de Shannon y análisis de cadencia de balizamiento C2 sin requerir terminación TLS.
+- **Base de inteligencia y regla detectora (`detector/ja4_database.py`, `detector/rules/ja4_threat.py`)**: Detección de Cobalt Strike, Sliver, Meterpreter y herramientas ofensivas.
+
+#### Fase 2: Motor de Persistencia y Analítica Columnar Masiva (ClickHouse & Formato NFC)
+- **Almacenamiento columnar nativo (.nfc) (`storage/columnar.py`)**: Compresión binaria con codificación por diccionario de strings, empaquetado vectorial de tipos numéricos y metadatos ZoneMap (min/max time, puertos, IPs) para poda eficiente de bloques en disco y memoria.
+- **Adaptador empresarial ClickHouse (`storage/clickhouse_adapter.py`)**: DDL con motor MergeTree, particionamiento temporal mensual (`toYYYYMM(timestamp)`) y códecs DoubleDelta/ZSTD, con conmutación transparente a almacenamiento local.
+- **Endpoints REST (`/api/v1/analytics/`)**:
+  - `POST /query`: Consulta analítica vectorizada con filtros estructurados.
+  - `GET /top-talkers`: Agregación de alto rendimiento por bytes o paquetes.
+  - `GET /protocols`: Desglose institucional de distribución de protocolos.
+  - `GET /timeline`: Series temporales agrupadas por cubetas configurables.
+  - `GET /status`: Diagnóstico operativo del almacenamiento columnar.
+
+#### Fase 3: Motor de Estado de Entidades y Libro Mayor de Activos (Entity State Engine)
+- **Entidades persistentes (`detector/entity.py`)**: Modelo `AssetEntity` que correlaciona IP actual, histórico de IPs, MAC, Hostname, rol corporativo y usuario para neutralizar la volatilidad de direcciones IP.
+- **Threat Score dinámico con decaimiento exponencial**:
+  $$S(t) = S_0 \cdot e^{-\lambda \Delta t} \cdot \text{role\_multiplier}$$
+  con ponderación por rol institucional (Domain Controller = 2.5x, Database Server = 2.0x, Jump Host = 1.8x, Workstation = 1.0x).
+- **Rastreador de eventos DHCP (`detector/dhcp_tracker.py`)**: Decodificación de transacciones BOOTP/DHCP (RFC 2131) para migrar leases sin perder contexto forense ni fragmentar alertas.
+- **Endpoints REST (`/api/v1/entities/`)**:
+  - `GET /entities`: Catálogo de activos ordenados por nivel de riesgo decreciente.
+  - `GET /entities/{id}`: Ficha forense completa de la entidad.
+  - `PATCH /entities/{id}/role`: Actualización de rol corporativo y recalibración de riesgo.
+  - `GET /entities/lookup/by-ip/{ip}`: Resolución de entidad activa por dirección IP.
+  - `POST /entities/dhcp/lease`: Ingestión manual o programática de eventos DHCP.
+
+#### Fase 4: Sonda de Captura eBPF/XDP y Emulador de Ring Buffer
+- **Sonda C eBPF/XDP (`collector/ebpf/novaflow_xdp.bpf.c`)**: Programa de kernel C con gancho directo en controlador de red (NIC), mapas hash `BPF_MAP_TYPE_HASH` para tabla de flujos activa y `BPF_MAP_TYPE_RINGBUF` para despacho asíncrono a userspace.
+- **Cargador híbrido (`collector/ebpf_loader.py`)**: Modo nativo para Linux con privilegios y emulador de Ring Buffer de alto rendimiento en espacio de usuario para Windows/macOS.
+- **Arnés de benchmarking (`scripts/run_ebpf_benchmark.py`)**: Medición empírica de velocidad de ingesta (>470,000 PPS y >320 Mbps en memoria sin descarte).
+
 ---
 
-## 📜 Licencia y Propósito Académico
+## Licencia y Propósito Académico
 Este proyecto se distribuye bajo la licencia MIT. Diseñado con fines de investigación, formación en seguridad de redes y demostración de arquitectura de sistemas en ingeniería de ciberseguridad.

@@ -13,6 +13,9 @@ from fastapi import WebSocket
 from collector.parser import NetFlowRecord
 from detector.engine import DetectionEngine
 from detector.models import SecurityAlert
+from detector.entity import EntityLedger
+from detector.dhcp_tracker import DHCPLeaseTracker
+from storage.columnar import ColumnarFlowStorage
 
 logger = logging.getLogger("NovaFlow.API.State")
 
@@ -56,6 +59,9 @@ class SystemState:
         self.engine: Optional[DetectionEngine] = None
         self.recent_flows: List[Dict[str, Any]] = []
         self.max_recent_flows = 2000
+        self.columnar_storage = ColumnarFlowStorage()
+        self.entity_ledger = EntityLedger()
+        self.dhcp_tracker = DHCPLeaseTracker(self.entity_ledger)
 
         # Métricas en tiempo real
         self.start_time = time.time()
@@ -104,11 +110,19 @@ class SystemState:
             }
             self.recent_flows.append(flow_dict)
 
+        # Indexar flujos en motor columnar masivo
+        for r in records:
+            ts = r.timestamp.timestamp() if hasattr(r, "timestamp") and hasattr(r.timestamp, "timestamp") else time.time()
+            self.columnar_storage.append_flow(r, timestamp=ts)
+
         if len(self.recent_flows) > self.max_recent_flows:
             self.recent_flows = self.recent_flows[-self.max_recent_flows:]
 
     def on_security_alert(self, alert: SecurityAlert):
         """Callback invocado cuando el motor de detección genera una alerta."""
+        # Actualizar puntaje de riesgo de la entidad involucrada
+        self.entity_ledger.record_alert(alert)
+
         # Enviar inmediatamente por WebSocket de forma asíncrona
         try:
             loop = asyncio.get_event_loop()
