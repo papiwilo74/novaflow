@@ -87,6 +87,11 @@ class TLSParser:
     TLS_HANDSHAKE_CLIENT_HELLO = 0x01
 
     @classmethod
+    def is_tls_handshake(cls, data: bytes) -> bool:
+        """Verifica de forma rápida si el buffer inicia con un registro TLS Handshake."""
+        return bool(data and len(data) >= 5 and data[0] == cls.TLS_RECORD_HANDSHAKE)
+
+    @classmethod
     def parse_client_hello(cls, data: bytes) -> Optional[TLSClientHello]:
         """
         Analiza un buffer de bytes en busca de un registro TLS ClientHello.

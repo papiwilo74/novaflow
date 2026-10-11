@@ -193,6 +193,8 @@ class KerberosParser:
             realm=realm,
         )
 
+    parse = parse_payload
+
 
 class DCERPCMessage:
     """Estructura de metadatos de un paquete DCE-RPC decodificado."""
@@ -287,3 +289,296 @@ class DCERPCParser:
             interface_name=matched_name,
             risk_level=risk_level,
         )
+
+    parse = parse_payload
+
+
+class DNSWireMessage:
+    """Estructura normalizada de metadatos de un paquete DNS (RFC 1035)."""
+
+    def __init__(
+        self,
+        transaction_id: int,
+        is_response: bool,
+        opcode: int,
+        rcode: int,
+        queries: List[str],
+        qtypes: List[int],
+        resolved_ips: List[str],
+        min_ttl: Optional[int] = None,
+    ):
+        self.transaction_id = transaction_id
+        self.is_response = is_response
+        self.opcode = opcode
+        self.rcode = rcode
+        self.queries = queries
+        self.qtypes = qtypes
+        self.resolved_ips = resolved_ips
+        self.min_ttl = min_ttl
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "transaction_id": f"0x{self.transaction_id:04x}",
+            "is_response": self.is_response,
+            "opcode": self.opcode,
+            "rcode": self.rcode,
+            "queries": self.queries,
+            "qtypes": self.qtypes,
+            "resolved_ips": self.resolved_ips,
+            "min_ttl": self.min_ttl,
+        }
+
+
+class DNSWireParser:
+    """Decodificador de alto rendimiento para datagramas DNS en cable (UDP/TCP puerto 53)."""
+
+    @staticmethod
+    def _decode_name(data: bytes, offset: int, depth: int = 0) -> Tuple[str, int]:
+        """Decodifica un nombre DNS (labels con longitud o puntero comprimido 0xC0)."""
+        if depth > 10 or offset >= len(data):
+            return "", offset
+
+        labels: List[str] = []
+        curr = offset
+        jumped = False
+        next_offset = offset
+
+        while curr < len(data):
+            length = data[curr]
+            if length == 0:
+                if not jumped:
+                    next_offset = curr + 1
+                break
+            elif (length & 0xC0) == 0xC0:
+                if curr + 1 >= len(data):
+                    break
+                ptr = ((length & 0x3F) << 8) | data[curr + 1]
+                if not jumped:
+                    next_offset = curr + 2
+                    jumped = True
+                part, _ = DNSWireParser._decode_name(data, ptr, depth + 1)
+                if part:
+                    labels.append(part)
+                break
+            else:
+                curr += 1
+                if curr + length > len(data):
+                    break
+                try:
+                    label = data[curr:curr + length].decode("ascii", errors="replace")
+                except Exception:
+                    label = "label"
+                labels.append(label)
+                curr += length
+                if not jumped:
+                    next_offset = curr
+
+        return ".".join(labels), next_offset
+
+    @classmethod
+    def parse(cls, data: bytes) -> Optional[DNSWireMessage]:
+        """Parsea un buffer binario DNS y extrae consultas, respuestas y TTLs."""
+        if not data or len(data) < 12:
+            return None
+
+        # Si viene encapsulado en TCP (prefijo de longitud de 2 bytes)
+        if len(data) >= 14:
+            tcp_len = int.from_bytes(data[:2], "big")
+            if tcp_len == len(data) - 2:
+                data = data[2:]
+
+        try:
+            tx_id, flags, qdcount, ancount, nscount, arcount = struct.unpack("!HHHHHH", data[:12])
+            is_response = bool(flags & 0x8000)
+            opcode = (flags >> 11) & 0x0F
+            rcode = flags & 0x0F
+
+            # Validación de cordura
+            if opcode > 5 or qdcount > 50 or ancount > 100:
+                return None
+
+            offset = 12
+            queries: List[str] = []
+            qtypes: List[int] = []
+
+            # 1. Extraer preguntas (Questions)
+            for _ in range(qdcount):
+                if offset >= len(data):
+                    break
+                qname, offset = cls._decode_name(data, offset)
+                if offset + 4 <= len(data):
+                    qtype, qclass = struct.unpack("!HH", data[offset:offset + 4])
+                    offset += 4
+                    if qname:
+                        queries.append(qname)
+                        qtypes.append(qtype)
+
+            resolved_ips: List[str] = []
+            min_ttl: Optional[int] = None
+
+            # 2. Extraer respuestas (Answers)
+            import socket
+            for _ in range(ancount):
+                if offset >= len(data):
+                    break
+                aname, offset = cls._decode_name(data, offset)
+                if offset + 10 <= len(data):
+                    atype, aclass, attl, rdlength = struct.unpack("!HHIH", data[offset:offset + 10])
+                    offset += 10
+                    if min_ttl is None or attl < min_ttl:
+                        min_ttl = attl
+
+                    if offset + rdlength <= len(data):
+                        if atype == 1 and rdlength == 4:  # Registro A (IPv4)
+                            try:
+                                ip_str = socket.inet_ntoa(data[offset:offset + 4])
+                                resolved_ips.append(ip_str)
+                            except Exception:
+                                pass
+                        offset += rdlength
+
+            return DNSWireMessage(
+                transaction_id=tx_id,
+                is_response=is_response,
+                opcode=opcode,
+                rcode=rcode,
+                queries=queries,
+                qtypes=qtypes,
+                resolved_ips=resolved_ips,
+                min_ttl=min_ttl,
+            )
+        except Exception:
+            return None
+
+
+class HTTPWireMessage:
+    """Estructura normalizada de una petición o respuesta HTTP extraída del cable (DPI L7)."""
+
+    def __init__(
+        self,
+        method: str = "",
+        uri: str = "",
+        path: str = "",
+        query: str = "",
+        version: str = "HTTP/1.1",
+        headers: Optional[Dict[str, str]] = None,
+        body_sample: bytes = b"",
+        is_request: bool = True,
+        status_code: Optional[int] = None,
+    ):
+        self.method = method.upper()
+        self.uri = uri
+        self.path = path
+        self.query = query
+        self.version = version
+        self.headers = headers or {}
+        self.body_sample = body_sample
+        self.is_request = is_request
+        self.status_code = status_code
+
+    @property
+    def user_agent(self) -> str:
+        for k, v in self.headers.items():
+            if k.lower() == "user-agent":
+                return v
+        return ""
+
+    @property
+    def host(self) -> str:
+        for k, v in self.headers.items():
+            if k.lower() == "host":
+                return v
+        return ""
+
+    @property
+    def content_type(self) -> str:
+        for k, v in self.headers.items():
+            if k.lower() == "content-type":
+                return v
+        return ""
+
+
+class HTTPWireParser:
+    """Decodificador ligero y de ultra-baja latencia para flujos HTTP/1.x en la carga útil de NetFlow."""
+
+    HTTP_METHODS = {b"GET", b"POST", b"PUT", b"DELETE", b"PATCH", b"HEAD", b"OPTIONS"}
+
+    @classmethod
+    def is_http(cls, data: bytes) -> bool:
+        if not data:
+            return False
+        first_token = data.split(b" ", 1)[0].upper()
+        if first_token in cls.HTTP_METHODS:
+            return True
+        if data.startswith(b"HTTP/1.") or data.startswith(b"HTTP/2"):
+            return True
+        return False
+
+    @classmethod
+    def parse(cls, data: bytes) -> Optional[HTTPWireMessage]:
+        if not data or not cls.is_http(data):
+            return None
+        try:
+            parts = data.split(b"\r\n\r\n", 1)
+            if len(parts) == 1:
+                parts = data.split(b"\n\n", 1)
+            header_bytes = parts[0]
+            body_bytes = parts[1] if len(parts) > 1 else b""
+
+            lines = header_bytes.split(b"\r\n") if b"\r\n" in header_bytes else header_bytes.split(b"\n")
+            if not lines:
+                return None
+
+            first_line = lines[0].decode("utf-8", errors="replace").strip()
+            tokens = first_line.split()
+
+            # Petición HTTP
+            if tokens and tokens[0].upper().encode() in cls.HTTP_METHODS:
+                method = tokens[0].upper()
+                uri = tokens[1] if len(tokens) > 1 else "/"
+                version = tokens[2] if len(tokens) > 2 else "HTTP/1.1"
+
+                path_parts = uri.split("?", 1)
+                path = path_parts[0]
+                query = path_parts[1] if len(path_parts) > 1 else ""
+
+                headers: Dict[str, str] = {}
+                for line in lines[1:]:
+                    line_str = line.decode("utf-8", errors="replace").strip()
+                    if ":" in line_str:
+                        h_name, h_val = line_str.split(":", 1)
+                        headers[h_name.strip()] = h_val.strip()
+
+                return HTTPWireMessage(
+                    method=method,
+                    uri=uri,
+                    path=path,
+                    query=query,
+                    version=version,
+                    headers=headers,
+                    body_sample=body_bytes[:2048],
+                    is_request=True,
+                )
+            # Respuesta HTTP
+            elif tokens and tokens[0].upper().startswith("HTTP/"):
+                version = tokens[0]
+                status_code = int(tokens[1]) if len(tokens) > 1 and tokens[1].isdigit() else 200
+                headers = {}
+                for line in lines[1:]:
+                    line_str = line.decode("utf-8", errors="replace").strip()
+                    if ":" in line_str:
+                        h_name, h_val = line_str.split(":", 1)
+                        headers[h_name.strip()] = h_val.strip()
+
+                return HTTPWireMessage(
+                    method="RESPONSE",
+                    version=version,
+                    headers=headers,
+                    body_sample=body_bytes[:2048],
+                    is_request=False,
+                    status_code=status_code,
+                )
+        except Exception:
+            return None
+        return None
+

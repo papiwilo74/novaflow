@@ -57,6 +57,10 @@ class NetFlowRecord:
     flow_version: int = 5
     campaign_id: Optional[str] = None
     vector_id: Optional[str] = None
+    payload: bytes = b""
+    domain: Optional[str] = None
+    sni: Optional[str] = None
+    l7_protocol: Optional[str] = None
 
 
 class NetFlowParser:

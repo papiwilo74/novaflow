@@ -154,3 +154,5 @@ class JA4Database:
             self._ja3_db[fingerprint] = meta
         else:
             self._ja4_db[fingerprint] = meta
+
+    add_fingerprint = add_custom_threat

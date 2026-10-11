@@ -30,6 +30,7 @@ class AlertCategory(str, Enum):
     ANOMALOUS_TLS = "ANOMALOUS_TLS"
     DGA_DOMAIN = "DGA_DOMAIN"
     IDENTITY_ATTACK = "IDENTITY_ATTACK"
+    WEB_APP_THREAT = "WEB_APP_THREAT"
 
 
 @dataclass

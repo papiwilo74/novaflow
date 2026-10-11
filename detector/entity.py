@@ -66,6 +66,10 @@ class AssetEntity:
     ja4_fingerprints: Set[str] = field(default_factory=set)
     alert_ids: List[str] = field(default_factory=list)
 
+    @property
+    def current_threat_score(self) -> float:
+        return self.calculate_dynamic_threat_score()
+
     def calculate_dynamic_threat_score(
         self,
         current_time: Optional[float] = None,
@@ -202,6 +206,8 @@ class EntityLedger:
         if entity_id:
             return self._entities.get(entity_id)
         return None
+
+    lookup_by_ip = get_by_ip
 
     def record_alert(self, alert: SecurityAlert, current_time: Optional[float] = None):
         """Asocia la alerta a la entidad de origen (o destino si aplica) y ajusta su Threat Score."""

@@ -128,6 +128,18 @@
         <i data-lucide="bot" class="w-4 h-4 text-indigo-400"></i> Copiloto SOC IA
         <span id="copilot-nav-badge" class="ml-1 text-[10px] px-1.5 py-0.2 rounded-full bg-indigo-950/60 text-indigo-400 border border-indigo-800/40 font-mono">RTX 4060</span>
       </button>
+      <button onclick="switchTab('campaigns')" id="tab-campaigns" class="tab-btn py-3 px-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 transition">
+        <i data-lucide="git-merge" class="w-4 h-4 text-amber-400"></i> Campañas Kill Chain
+        <span id="campaigns-nav-badge" class="ml-1 text-[10px] px-1.5 py-0.2 rounded-full bg-amber-950/60 text-amber-400 border border-amber-800/40 font-mono">BAYES</span>
+      </button>
+      <button onclick="switchTab('entities')" id="tab-entities" class="tab-btn py-3 px-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 transition">
+        <i data-lucide="server" class="w-4 h-4 text-blue-400"></i> Libro Mayor de Activos
+        <span id="entities-nav-badge" class="ml-1 text-[10px] px-1.5 py-0.2 rounded-full bg-blue-950/60 text-blue-400 border border-blue-800/40 font-mono">ASSETS</span>
+      </button>
+      <button onclick="switchTab('mitigation')" id="tab-mitigation" class="tab-btn py-3 px-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 transition">
+        <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400"></i> Mitigación SDN
+        <span id="mitigation-nav-badge" class="ml-1 text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-800/40 font-mono">BGP/K8S</span>
+      </button>
     </div>
   </div>
 
@@ -895,6 +907,227 @@
       </div>
     </section>
 
+    <!-- ============================================================= -->
+    <!-- VIEW 9: CAMPAÑAS KILL CHAIN (BAYESIAN & MARKOVIAN ENGINE)     -->
+    <!-- ============================================================= -->
+    <section id="view-campaigns" class="hidden space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-bold text-white flex items-center gap-2">
+            <i data-lucide="git-merge" class="w-5 h-5 text-amber-400"></i>
+            Correlación Causal de Campañas Multi-Etapa (Kill Chain)
+          </h2>
+          <p class="text-xs text-slate-400">Modelado estocástico de progresión adversaria mediante matrices de transición de Markov y actualización bayesiana de certeza.</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <button onclick="loadCampaigns()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium border border-slate-700 flex items-center gap-1.5 transition">
+            <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i> Actualizar Campañas
+          </button>
+        </div>
+      </div>
+
+      <!-- STATS -->
+      <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <div class="bg-dark-card border border-dark-border rounded-xl p-4">
+          <span class="text-xs text-slate-400 block font-mono">TOTAL CASOS</span>
+          <span id="stat-campaigns-total" class="text-2xl font-bold font-mono text-white mt-1 block">0</span>
+        </div>
+        <div class="bg-dark-card border border-amber-900/40 rounded-xl p-4 bg-gradient-to-br from-amber-950/20 to-dark-card">
+          <span class="text-xs text-amber-300 block font-mono">CAMPAÑAS ACTIVAS</span>
+          <span id="stat-campaigns-active" class="text-2xl font-bold font-mono text-amber-400 mt-1 block">0</span>
+        </div>
+        <div class="bg-dark-card border border-dark-border rounded-xl p-4">
+          <span class="text-xs text-slate-400 block font-mono">CERTEZA MEDIA</span>
+          <span id="stat-campaigns-avg-prob" class="text-2xl font-bold font-mono text-indigo-400 mt-1 block">0%</span>
+        </div>
+        <div class="bg-dark-card border border-rose-900/40 rounded-xl p-4 bg-gradient-to-br from-rose-950/20 to-dark-card">
+          <span class="text-xs text-rose-300 block font-mono">ESCALADAS (P &ge; 85%)</span>
+          <span id="stat-campaigns-critical" class="text-2xl font-bold font-mono text-rose-400 mt-1 block">0</span>
+        </div>
+      </div>
+
+      <!-- LISTA DE CAMPAÑAS ACTIVAS -->
+      <div id="campaigns-container" class="space-y-4">
+        <div class="text-center py-12 text-slate-500 font-mono text-xs">Cargando campañas causales...</div>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <!-- VIEW 10: LIBRO MAYOR DE ACTIVOS & THREAT SCORE DINÁMICO       -->
+    <!-- ============================================================= -->
+    <section id="view-entities" class="hidden space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-bold text-white flex items-center gap-2">
+            <i data-lucide="server" class="w-5 h-5 text-blue-400"></i>
+            Libro Mayor de Activos & Riesgo de Entidades (Asset Ledger)
+          </h2>
+          <p class="text-xs text-slate-400">Neutralización de volatilidad IP vía DHCP y cálculo de Threat Score dinámico con decaimiento exponencial S(t) = S0 &bull; e^(-&lambda;&Delta;t) &bull; role_multiplier.</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <button onclick="loadEntities()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium border border-slate-700 flex items-center gap-1.5 transition">
+            <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i> Refrescar Activos
+          </button>
+        </div>
+      </div>
+
+      <!-- METRICAS DE ACTIVOS -->
+      <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <div class="bg-dark-card border border-dark-border rounded-xl p-4">
+          <span class="text-xs text-slate-400 block font-mono">ACTIVOS RASTREADOS</span>
+          <span id="stat-entities-total" class="text-2xl font-bold font-mono text-white mt-1 block">0</span>
+        </div>
+        <div class="bg-dark-card border border-dark-border rounded-xl p-4">
+          <span class="text-xs text-slate-400 block font-mono">SERVIDORES CRÍTICOS</span>
+          <span id="stat-entities-critical-servers" class="text-2xl font-bold font-mono text-purple-400 mt-1 block">0</span>
+        </div>
+        <div class="bg-dark-card border border-dark-border rounded-xl p-4">
+          <span class="text-xs text-slate-400 block font-mono">PROMEDIO THREAT SCORE</span>
+          <span id="stat-entities-avg-score" class="text-2xl font-bold font-mono text-amber-400 mt-1 block">0.0</span>
+        </div>
+        <div class="bg-dark-card border border-rose-900/40 rounded-xl p-4 bg-gradient-to-br from-rose-950/20 to-dark-card">
+          <span class="text-xs text-rose-300 block font-mono">EN RIESGO SEVERO (&ge; 40)</span>
+          <span id="stat-entities-high-risk" class="text-2xl font-bold font-mono text-rose-400 mt-1 block">0</span>
+        </div>
+      </div>
+
+      <!-- REGISTRO DHCP LEASE -->
+      <div class="bg-dark-card border border-dark-border rounded-xl p-4">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-bold text-slate-300 uppercase font-mono flex items-center gap-2">
+            <i data-lucide="radio" class="w-4 h-4 text-cyan-400"></i> Registrar Migración de Lease DHCP
+          </span>
+          <span class="text-[11px] text-slate-500 font-mono">RFC 2131 BOOTP Tracking</span>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+          <input id="dhcp-mac-input" type="text" placeholder="MAC (ej. 00:1A:2B:3C:4D:5E)" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono placeholder:text-slate-500 focus:outline-none focus:border-blue-500">
+          <input id="dhcp-ip-input" type="text" placeholder="Nueva IP (ej. 10.0.0.155)" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono placeholder:text-slate-500 focus:outline-none focus:border-blue-500">
+          <input id="dhcp-host-input" type="text" placeholder="Hostname (ej. WS-FINANCE-04)" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono placeholder:text-slate-500 focus:outline-none focus:border-blue-500">
+          <button onclick="submitDhcpLease()" class="bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg px-4 py-2 transition flex items-center justify-center gap-1.5">
+            <i data-lucide="plus-circle" class="w-4 h-4"></i> Actualizar Lease
+          </button>
+        </div>
+      </div>
+
+      <!-- TABLA DE ENTIDADES -->
+      <div class="bg-dark-card border border-dark-border rounded-xl overflow-hidden">
+        <div class="p-4 border-b border-dark-border flex items-center justify-between">
+          <span class="text-xs font-bold text-slate-300 uppercase font-mono">Inventario de Entidades Ordenado por Riesgo Decreciente</span>
+          <span class="text-xs text-slate-500 font-mono" id="entities-count-label">0 entidades</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs font-mono">
+            <thead class="bg-slate-900/60 text-slate-400 border-b border-dark-border">
+              <tr>
+                <th class="py-3 px-4">DIRECCIÓN IP</th>
+                <th class="py-3 px-4">HOSTNAME / MAC</th>
+                <th class="py-3 px-4">ROL CORPORATIVO</th>
+                <th class="py-3 px-4">MULTIPLICADOR</th>
+                <th class="py-3 px-4">ALERTAS</th>
+                <th class="py-3 px-4">THREAT SCORE</th>
+                <th class="py-3 px-4 text-right">ACCIONES</th>
+              </tr>
+            </thead>
+            <tbody id="entities-tbody" class="divide-y divide-dark-border text-slate-300">
+              <tr><td colspan="7" class="py-8 text-center text-slate-500">Cargando inventario de activos...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+    <!-- VIEW 11: CONSOLA DE MITIGACIÓN BGP FLOWSPEC & ZERO-TRUST SDN  -->
+    <!-- ============================================================= -->
+    <section id="view-mitigation" class="hidden space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-bold text-white flex items-center gap-2">
+            <i data-lucide="shield-check" class="w-5 h-5 text-emerald-400"></i>
+            Mitigación Perimetral BGP Flowspec (RFC 5575) & Zero-Trust Cloud-Native
+          </h2>
+          <p class="text-xs text-slate-400">Contención a velocidad de hardware en routers perimetrales (ExaBGP, Juniper Junos, Cisco IOS-XR) y aislamiento en microservicios mediante Cilium y Kubernetes.</p>
+        </div>
+      </div>
+
+      <!-- FORMULARIO DE GENERACIÓN INTERACTIVA -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="bg-dark-card border border-dark-border rounded-xl p-5 space-y-4">
+          <h3 class="text-xs font-bold text-slate-300 uppercase font-mono flex items-center gap-2 border-b border-dark-border pb-2">
+            <i data-lucide="sliders" class="w-4 h-4 text-blue-400"></i> Parámetros de la Política SDN
+          </h3>
+
+          <div>
+            <label class="text-[11px] text-slate-400 uppercase font-mono block mb-1">IP / Prefijo Atacante (Origen)</label>
+            <input id="mit-src-ip" type="text" value="10.0.0.88" placeholder="ej. 198.51.100.0/24" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-blue-500">
+          </div>
+
+          <div>
+            <label class="text-[11px] text-slate-400 uppercase font-mono block mb-1">IP / Prefijo Destino</label>
+            <input id="mit-dst-ip" type="text" value="0.0.0.0/0" placeholder="ej. 192.168.1.10" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-blue-500">
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-[11px] text-slate-400 uppercase font-mono block mb-1">Puerto Destino</label>
+              <input id="mit-dst-port" type="number" value="445" placeholder="ej. 80" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-blue-500">
+            </div>
+            <div>
+              <label class="text-[11px] text-slate-400 uppercase font-mono block mb-1">Protocolo L4</label>
+              <select id="mit-protocol" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-blue-500">
+                <option value="6">TCP (6)</option>
+                <option value="17">UDP (17)</option>
+                <option value="1">ICMP (1)</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="text-[11px] text-slate-400 uppercase font-mono block mb-1">Acción BGP Flowspec</label>
+            <select id="mit-action" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-blue-500">
+              <option value="DROP_TRAFFIC">DROP_TRAFFIC (Descarte inmediato / Blackhole)</option>
+              <option value="RATE_LIMIT">RATE_LIMIT (Limitación de tasa)</option>
+              <option value="REDIRECT_VRF">REDIRECT_VRF (Desvío a Sandbox/Honeypot)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="text-[11px] text-slate-400 uppercase font-mono block mb-1">Namespace Kubernetes</label>
+            <input id="mit-k8s-ns" type="text" value="production" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-blue-500">
+          </div>
+
+          <button onclick="generateAllMitigations()" class="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs flex items-center justify-center gap-2 transition">
+            <i data-lucide="zap" class="w-4 h-4"></i> Generar Políticas en 1-Clic
+          </button>
+        </div>
+
+        <!-- VISUALIZADOR DE CÓDIGO GENERADO -->
+        <div class="lg:col-span-2 bg-dark-card border border-dark-border rounded-xl p-5 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between border-b border-dark-border pb-3 mb-4">
+              <div class="flex gap-2 overflow-x-auto" id="mitigation-syntax-tabs">
+                <button onclick="switchMitigationSyntax('exabgp')" id="tab-mit-exabgp" class="px-3 py-1 rounded text-xs font-mono font-medium bg-blue-600/20 text-blue-400 border border-blue-500/30 whitespace-nowrap">ExaBGP</button>
+                <button onclick="switchMitigationSyntax('juniper')" id="tab-mit-juniper" class="px-3 py-1 rounded text-xs font-mono font-medium text-slate-400 hover:text-white whitespace-nowrap">Juniper Junos</button>
+                <button onclick="switchMitigationSyntax('cisco')" id="tab-mit-cisco" class="px-3 py-1 rounded text-xs font-mono font-medium text-slate-400 hover:text-white whitespace-nowrap">Cisco IOS-XR</button>
+                <button onclick="switchMitigationSyntax('cilium')" id="tab-mit-cilium" class="px-3 py-1 rounded text-xs font-mono font-medium text-slate-400 hover:text-white whitespace-nowrap">Cilium Policy (L7)</button>
+                <button onclick="switchMitigationSyntax('k8s')" id="tab-mit-k8s" class="px-3 py-1 rounded text-xs font-mono font-medium text-slate-400 hover:text-white whitespace-nowrap">Kubernetes Core</button>
+              </div>
+              <button onclick="copyActiveMitigationSyntax()" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded border border-slate-700 flex items-center gap-1.5 transition whitespace-nowrap">
+                <i data-lucide="copy" class="w-3.5 h-3.5"></i> Copiar
+              </button>
+            </div>
+
+            <pre id="mitigation-code-display" class="bg-slate-950 p-4 rounded-lg font-mono text-emerald-300 border border-slate-800 text-xs overflow-x-auto min-h-[300px] leading-relaxed">Haz clic en "Generar Políticas en 1-Clic" para calcular las reglas perimetrales...</pre>
+          </div>
+
+          <div class="text-[11px] text-slate-500 mt-4 font-mono flex items-center justify-between border-t border-dark-border pt-3">
+            <span>Estándar: RFC 5575 BGP Dissemination of Flow Specification Rules</span>
+            <span class="text-emerald-400 flex items-center gap-1"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Sintaxis validada</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <!-- MODAL: DETALLE FORENSE DEL INCIDENTE -->
@@ -1007,6 +1240,9 @@
         <div class="flex items-center justify-between pt-2 border-t border-dark-border">
           <span class="text-slate-400">Triaje Operativo:</span>
           <div class="flex gap-2">
+            <button onclick="mitigateCurrentModalAlert()" class="px-3 py-1.5 rounded-lg bg-rose-600/20 text-rose-300 border border-rose-500/30 hover:bg-rose-600/30 transition flex items-center gap-1.5 font-medium">
+              <i data-lucide="shield-x" class="w-3.5 h-3.5"></i> Mitigar SDN
+            </button>
             <button onclick="updateAlertState('INVESTIGATING')" class="px-3 py-1.5 rounded-lg bg-amber-600/20 text-amber-300 border border-amber-500/30 hover:bg-amber-600/30 transition">Investigando</button>
             <button onclick="updateAlertState('RESOLVED')" class="px-3 py-1.5 rounded-lg bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-600/30 transition">Resolver</button>
             <button onclick="updateAlertState('FALSE_POSITIVE')" class="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition">Falso Positivo</button>
@@ -1021,8 +1257,11 @@
     // --- ESTADO GLOBAL CLIENTE ---
     let currentTab = 'overview';
     let currentModalAlertId = null;
+    let currentModalAlert = null;
     let currentPlaybookRules = [];
     let currentSelectedPlaybookIndex = 0;
+    let currentMitigationSyntaxes = {};
+    let activeMitigationSyntaxKey = 'exabgp';
     let ws = null;
     let throughputChart = null;
     let protocolChart = null;
@@ -1416,6 +1655,7 @@
       try {
         const res = await fetch(`/api/v1/alerts/${alertId}`);
         const alert = await res.json();
+        currentModalAlert = alert;
 
         document.getElementById('modal-title').textContent = alert.title;
         document.getElementById('modal-category').textContent = `${alert.category} &bull; Severidad: ${alert.severity} &bull; Confianza: ${(alert.confidence * 100).toFixed(0)}%`;
@@ -1518,6 +1758,21 @@
     function closeIncidentModal() {
       document.getElementById('incident-modal').classList.add('hidden');
       currentModalAlertId = null;
+      currentModalAlert = null;
+    }
+
+    function mitigateCurrentModalAlert() {
+      if (!currentModalAlert) return;
+      const targetIp = currentModalAlert.src_ip || '0.0.0.0';
+      const dstIp = currentModalAlert.dst_ip || '0.0.0.0/0';
+      const dstPort = currentModalAlert.dst_port || 445;
+      closeIncidentModal();
+      document.getElementById('mit-src-ip').value = targetIp;
+      document.getElementById('mit-dst-ip').value = dstIp;
+      document.getElementById('mit-dst-port').value = dstPort;
+      switchTab('mitigation');
+      generateAllMitigations();
+      showToast(`Parámetros de mitigación cargados para ${targetIp}`, 'info');
     }
 
     async function explainCurrentModalAlert() {
@@ -2102,7 +2357,7 @@
 
     function switchTab(tabId) {
       currentTab = tabId;
-      ['overview', 'talkers', 'incidents', 'flows', 'purple', 'mitre', 'graph', 'copilot'].forEach(t => {
+      ['overview', 'talkers', 'incidents', 'flows', 'purple', 'mitre', 'graph', 'copilot', 'campaigns', 'entities', 'mitigation'].forEach(t => {
         const view = document.getElementById(`view-${t}`);
         const btn = document.getElementById(`tab-${t}`);
         if (!view || !btn) return;
@@ -2133,6 +2388,11 @@
       else if (currentTab === 'mitre') loadMitreHeatmap();
       else if (currentTab === 'graph') loadGraphTopology();
       else if (currentTab === 'copilot') loadCopilotHealth();
+      else if (currentTab === 'campaigns') loadCampaigns();
+      else if (currentTab === 'entities') loadEntities();
+      else if (currentTab === 'mitigation') {
+        if (!currentMitigationSyntaxes.exabgp) generateAllMitigations();
+      }
     }
 
     async function loadCopilotHealth() {
@@ -2285,6 +2545,411 @@
       }
     }
 
+    // =============================================================
+    // VIEW 9: CAMPAÑAS KILL CHAIN LOGIC (BAYESIAN & MARKOVIAN)
+    // =============================================================
+    async function loadCampaigns() {
+      const container = document.getElementById('campaigns-container');
+      try {
+        const res = await fetch('/api/v1/campaigns');
+        if (!res.ok) {
+          container.innerHTML = '<div class="py-8 text-center text-slate-500 font-mono text-xs">Error consultando el motor de campañas.</div>';
+          return;
+        }
+        const data = await res.json();
+        const campaigns = data.campaigns || [];
+
+        const total = data.total_campaigns || campaigns.length;
+        const active = campaigns.filter(c => c.status === 'ACTIVE' || c.status === 'ESCALATED').length;
+        const critical = campaigns.filter(c => (c.bayesian_probability >= 0.85) || c.status === 'ESCALATED').length;
+        const avgProb = campaigns.length > 0
+          ? ((campaigns.reduce((acc, c) => acc + (c.bayesian_probability || 0), 0) / campaigns.length) * 100).toFixed(1)
+          : '0.0';
+
+        document.getElementById('stat-campaigns-total').textContent = total;
+        document.getElementById('stat-campaigns-active').textContent = active;
+        document.getElementById('stat-campaigns-avg-prob').textContent = `${avgProb}%`;
+        document.getElementById('stat-campaigns-critical').textContent = critical;
+
+        if (campaigns.length === 0) {
+          container.innerHTML = '<div class="bg-dark-card border border-dark-border rounded-xl p-8 text-center text-slate-500 font-mono text-xs">No hay campañas multi-etapa activas en la ventana actual. El motor de Markov correlacionará automáticamente la telemetría concurrente.</div>';
+          return;
+        }
+
+        const killChainStages = [
+          { id: 'RECONNAISSANCE', label: 'Reconocimiento' },
+          { id: 'INITIAL_ACCESS', label: 'Acceso Inicial' },
+          { id: 'LATERAL_MOVEMENT', label: 'Mov. Lateral' },
+          { id: 'CREDENTIAL_ACCESS', label: 'Credenciales' },
+          { id: 'COMMAND_AND_CONTROL', label: 'C2 / Beaconing' },
+          { id: 'EXFILTRATION', label: 'Exfiltración' },
+          { id: 'IMPACT', label: 'Impacto' }
+        ];
+
+        container.innerHTML = campaigns.map(c => {
+          const prob = (c.bayesian_probability * 100).toFixed(1);
+          let probBadgeClass = 'text-blue-400 bg-blue-500/10 border-blue-500/20';
+          let probBarColor = 'bg-blue-500';
+          if (c.bayesian_probability >= 0.85) {
+            probBadgeClass = 'text-rose-400 bg-rose-500/20 border-rose-500/40 animate-pulse';
+            probBarColor = 'bg-rose-500';
+          } else if (c.bayesian_probability >= 0.50) {
+            probBadgeClass = 'text-amber-400 bg-amber-500/20 border-amber-500/40';
+            probBarColor = 'bg-amber-500';
+          }
+
+          let statusBadgeClass = 'bg-slate-800 text-slate-300';
+          if (c.status === 'ACTIVE') statusBadgeClass = 'bg-amber-500/20 text-amber-300 border border-amber-500/30';
+          else if (c.status === 'ESCALATED') statusBadgeClass = 'bg-rose-500/20 text-rose-300 border border-rose-500/30 animate-pulse';
+          else if (c.status === 'CONTAINED') statusBadgeClass = 'bg-blue-500/20 text-blue-300 border border-blue-500/30';
+          else if (c.status === 'RESOLVED') statusBadgeClass = 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+
+          return `
+            <div class="bg-dark-card border border-dark-border rounded-xl p-5 space-y-4 hover:border-slate-700 transition">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-dark-border pb-3">
+                <div class="flex items-center gap-3">
+                  <span class="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold ${statusBadgeClass}">${c.status}</span>
+                  <div>
+                    <div class="font-bold text-white font-mono text-sm flex items-center gap-2">
+                      <span>Campaña: ${c.campaign_id.slice(0, 8)}...</span>
+                      <span class="text-xs font-normal text-slate-400">&bull; Activo Primario: <strong class="text-cyan-400 font-mono">${c.primary_asset}</strong></span>
+                    </div>
+                    <div class="text-[11px] text-slate-400 font-mono">
+                      Involucrados: ${c.involved_assets.join(', ') || 'N/A'} &bull; Alertas: ${c.total_alerts}
+                    </div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <div class="text-right">
+                    <span class="text-[10px] uppercase font-mono text-slate-400 block">Certeza Bayesiana</span>
+                    <span class="font-mono font-bold text-sm px-2 py-0.5 rounded border ${probBadgeClass}">${prob}%</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Kill Chain Stepper -->
+              <div>
+                <span class="text-[10px] font-mono text-slate-400 uppercase tracking-wider block mb-2">Progresión Adversaria en Kill Chain</span>
+                <div class="grid grid-cols-2 sm:grid-cols-7 gap-1.5 font-mono text-[10px]">
+                  ${killChainStages.map(st => {
+                    const isReached = (c.stages || []).includes(st.id);
+                    return `
+                      <div class="px-2 py-2 rounded text-center border transition ${
+                        isReached
+                          ? 'bg-amber-500/20 border-amber-500/40 text-amber-200 font-bold shadow-sm'
+                          : 'bg-slate-900/60 border-slate-800 text-slate-500'
+                      }">
+                        <div class="text-[9px] truncate">${st.label}</div>
+                        <div class="text-[8px] mt-0.5">${isReached ? 'DETECTADO' : '-'}</div>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+                <div class="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden mt-2">
+                  <div class="h-1.5 rounded-full ${probBarColor} transition-all duration-500" style="width: ${prob}%"></div>
+                </div>
+              </div>
+
+              <!-- Alertas Recientes -->
+              ${c.recent_alerts && c.recent_alerts.length > 0 ? `
+                <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-1.5">
+                  <span class="text-[10px] font-mono text-slate-400 uppercase block mb-1">Últimos Eventos de la Campaña:</span>
+                  ${c.recent_alerts.map(a => `
+                    <div class="flex items-center justify-between text-[11px] font-mono hover:text-white cursor-pointer" onclick="openIncidentModal('${a.alert_id}')">
+                      <span class="text-slate-300 truncate"><strong class="text-amber-400">[${a.category}]</strong> ${a.title}</span>
+                      <span class="text-slate-500 text-[10px]">${a.src_ip} &rarr; ${a.dst_ip}</span>
+                    </div>
+                  `).join('')}
+                </div>
+              ` : ''}
+
+              <!-- Botones de Acción -->
+              <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-dark-border text-xs">
+                <span class="text-slate-500 font-mono text-[11px]">Iniciado: ${new Date(c.created_at * 1000).toLocaleTimeString()}</span>
+                <div class="flex items-center gap-2">
+                  <button onclick="containCampaign('${c.campaign_id}', '${c.primary_asset}')" class="px-3 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 font-medium transition flex items-center gap-1.5">
+                    <i data-lucide="shield-x" class="w-3.5 h-3.5"></i> Contener en BGP/SDN
+                  </button>
+                  <button onclick="updateCampaignStatus('${c.campaign_id}', 'RESOLVED')" class="px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 font-medium transition flex items-center gap-1.5">
+                    <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Resolver Caso
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        if (window.lucide) lucide.createIcons();
+      } catch (err) {
+        container.innerHTML = '<div class="py-8 text-center text-rose-400 font-mono text-xs">Error cargando campañas.</div>';
+      }
+    }
+
+    async function updateCampaignStatus(campaignId, status) {
+      try {
+        const res = await fetch(`/api/v1/campaigns/${campaignId}/status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status })
+        });
+        if (res.ok) {
+          showToast(`Campaña actualizada a estado: ${status}`, 'success');
+          loadCampaigns();
+        } else {
+          showToast('No se pudo actualizar el estado de la campaña', 'error');
+        }
+      } catch (e) {
+        showToast('Error de red al actualizar campaña', 'error');
+      }
+    }
+
+    function containCampaign(campaignId, primaryAsset) {
+      updateCampaignStatus(campaignId, 'CONTAINED');
+      document.getElementById('mit-src-ip').value = primaryAsset;
+      switchTab('mitigation');
+      generateAllMitigations();
+      showToast(`Reglas de mitigación generadas para el activo ${primaryAsset}`, 'info');
+    }
+
+    // =============================================================
+    // VIEW 10: LIBRO MAYOR DE ACTIVOS (ENTITY LEDGER & DHCP)
+    // =============================================================
+    async function loadEntities() {
+      const tbody = document.getElementById('entities-tbody');
+      try {
+        const res = await fetch('/api/v1/entities?limit=100');
+        if (!res.ok) {
+          tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-slate-500">Error al consultar el Libro Mayor de Activos.</td></tr>';
+          return;
+        }
+        const data = await res.json();
+        const entities = data.entities || [];
+
+        const total = data.total_tracked || entities.length;
+        const criticalServers = entities.filter(e => e.role === 'DOMAIN_CONTROLLER' || e.role === 'DATABASE_SERVER').length;
+        const avgScore = entities.length > 0
+          ? (entities.reduce((acc, e) => acc + (e.threat_score || 0), 0) / entities.length).toFixed(1)
+          : '0.0';
+        const highRisk = entities.filter(e => (e.threat_score || 0) >= 40.0).length;
+
+        document.getElementById('stat-entities-total').textContent = total;
+        document.getElementById('stat-entities-critical-servers').textContent = criticalServers;
+        document.getElementById('stat-entities-avg-score').textContent = avgScore;
+        document.getElementById('stat-entities-high-risk').textContent = highRisk;
+        document.getElementById('entities-count-label').textContent = `${entities.length} de ${total} entidades`;
+
+        if (entities.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-slate-500">No se han registrado entidades en el libro mayor.</td></tr>';
+          return;
+        }
+
+        const rolesList = [
+          'WORKSTATION', 'DOMAIN_CONTROLLER', 'DATABASE_SERVER', 'WEB_SERVER', 'JUMP_HOST', 'IOT_DEVICE', 'UNKNOWN'
+        ];
+
+        tbody.innerHTML = entities.map(e => {
+          const score = (e.threat_score || 0).toFixed(1);
+          let scoreBadge = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+          if (e.threat_score >= 60) scoreBadge = 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse font-bold';
+          else if (e.threat_score >= 35) scoreBadge = 'bg-orange-500/20 text-orange-300 border-orange-500/40 font-bold';
+          else if (e.threat_score >= 15) scoreBadge = 'bg-amber-500/20 text-amber-300 border-amber-500/40';
+
+          return `
+            <tr class="hover:bg-slate-900/50 transition">
+              <td class="py-3 px-4 font-bold text-cyan-400 font-mono">${e.current_ip}</td>
+              <td class="py-3 px-4 font-mono text-slate-300">
+                <div>${e.hostname || 'Sin Hostname'}</div>
+                <div class="text-[10px] text-slate-500">${e.mac_address || 'MAC no asociada'}</div>
+              </td>
+              <td class="py-3 px-4">
+                <select onchange="updateEntityRole('${e.entity_id}', this.value)" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-200 font-mono focus:outline-none focus:border-blue-500">
+                  ${rolesList.map(r => `<option value="${r}" ${e.role === r ? 'selected' : ''}>${r}</option>`).join('')}
+                </select>
+              </td>
+              <td class="py-3 px-4 font-mono text-indigo-400 font-bold">x${(e.role_multiplier || 1.0).toFixed(1)}</td>
+              <td class="py-3 px-4 font-mono">
+                <span class="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300">${e.alerts_count || 0}</span>
+              </td>
+              <td class="py-3 px-4">
+                <span class="px-2.5 py-1 rounded text-xs font-mono border ${scoreBadge}">
+                  ${score}
+                </span>
+              </td>
+              <td class="py-3 px-4 text-right space-x-1">
+                <button onclick="prepareMitigationForIp('${e.current_ip}')" class="px-2.5 py-1 rounded bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 text-[11px] transition" title="Mitigar en Edge SDN">
+                  Mitigar
+                </button>
+                <button onclick="locateEntityOnGraph('${e.current_ip}')" class="px-2.5 py-1 rounded bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-[11px] transition" title="Ver en Grafo de Ataque">
+                  Grafo
+                </button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-rose-400">Error al recuperar entidades.</td></tr>';
+      }
+    }
+
+    async function updateEntityRole(entityId, newRole) {
+      try {
+        const res = await fetch(`/api/v1/entities/${entityId}/role`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ role: newRole })
+        });
+        if (res.ok) {
+          showToast(`Rol actualizado a ${newRole}. Multiplicador recalculado.`, 'success');
+          loadEntities();
+        } else {
+          showToast('Error al modificar el rol del activo', 'error');
+        }
+      } catch (e) {
+        showToast('Error de red al actualizar rol', 'error');
+      }
+    }
+
+    async function submitDhcpLease() {
+      const mac = document.getElementById('dhcp-mac-input').value.trim();
+      const ip = document.getElementById('dhcp-ip-input').value.trim();
+      const hostname = document.getElementById('dhcp-host-input').value.trim();
+
+      if (!mac || !ip) {
+        showToast('Debe ingresar al menos la MAC y la dirección IP', 'warning');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/v1/entities/dhcp/lease', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mac, ip, hostname: hostname || null, event_type: 'ACK' })
+        });
+        if (res.ok) {
+          showToast(`Lease DHCP registrado: ${mac} asignada a ${ip}`, 'success');
+          document.getElementById('dhcp-mac-input').value = '';
+          document.getElementById('dhcp-ip-input').value = '';
+          document.getElementById('dhcp-host-input').value = '';
+          loadEntities();
+        } else {
+          showToast('No se pudo procesar la concesión DHCP', 'error');
+        }
+      } catch (e) {
+        showToast('Error de conexión al registrar DHCP lease', 'error');
+      }
+    }
+
+    function prepareMitigationForIp(ip) {
+      document.getElementById('mit-src-ip').value = ip;
+      switchTab('mitigation');
+      generateAllMitigations();
+      showToast(`Reglas preparadas para aislar: ${ip}`, 'info');
+    }
+
+    function locateEntityOnGraph(ip) {
+      switchTab('graph');
+      setTimeout(() => {
+        if (cy) {
+          const node = cy.getElementById(ip);
+          if (node && node.length > 0) {
+            cy.elements().removeClass('node-highlight');
+            node.addClass('node-highlight');
+            cy.animate({ center: { eles: node }, zoom: 1.5 }, { duration: 500 });
+            handleNodeClick(node.data());
+          } else {
+            showToast(`El nodo ${ip} aún no registra aristas en la topología activa`, 'warning');
+          }
+        }
+      }, 300);
+    }
+
+    // =============================================================
+    // VIEW 11: MITIGACIÓN BGP FLOWSPEC & ZERO-TRUST SDN LOGIC
+    // =============================================================
+    async function generateAllMitigations() {
+      const srcIp = document.getElementById('mit-src-ip').value.trim();
+      const dstIp = document.getElementById('mit-dst-ip').value.trim();
+      const dstPortVal = document.getElementById('mit-dst-port').value.trim();
+      const dstPort = dstPortVal ? parseInt(dstPortVal, 10) : null;
+      const protocol = parseInt(document.getElementById('mit-protocol').value, 10) || 6;
+      const action = document.getElementById('mit-action').value;
+      const namespace = document.getElementById('mit-k8s-ns').value.trim() || 'production';
+
+      const preEl = document.getElementById('mitigation-code-display');
+      preEl.textContent = '// Calculando sintaxis de mitigación SDN multi-plataforma...';
+
+      try {
+        const [bgpRes, cnRes] = await Promise.all([
+          fetch('/api/v1/mitigation/bgp-flowspec', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              src_ip: srcIp || null,
+              dst_ip: dstIp || null,
+              dst_port: dstPort,
+              protocol: protocol,
+              action: action
+            })
+          }),
+          fetch('/api/v1/mitigation/cloud-native', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              target_ip: srcIp || '10.0.0.88',
+              namespace: namespace,
+              incident_id: 'INC-NOVA-SDN'
+            })
+          })
+        ]);
+
+        const bgpData = bgpRes.ok ? await bgpRes.json() : {};
+        const cnData = cnRes.ok ? await cnRes.json() : {};
+
+        currentMitigationSyntaxes = {
+          exabgp: bgpData.exabgp_syntax || '// Error generando ExaBGP',
+          juniper: bgpData.juniper_junos_syntax || '// Error generando Juniper Junos',
+          cisco: bgpData.cisco_iosxr_syntax || '// Error generando Cisco IOS-XR',
+          cilium: cnData.cilium_network_policy_yaml || '// Error generando Cilium Policy',
+          k8s: cnData.kubernetes_network_policy_yaml || '// Error generando Kubernetes Policy'
+        };
+
+        renderActiveMitigationCode();
+        showToast('Políticas de mitigación calculadas para todos los backends SDN', 'success');
+      } catch (e) {
+        preEl.textContent = '// Error en la comunicación con el servicio de mitigación perimetral.';
+        showToast('Error al generar políticas SDN', 'error');
+      }
+    }
+
+    function switchMitigationSyntax(syntaxKey) {
+      activeMitigationSyntaxKey = syntaxKey;
+      const keys = ['exabgp', 'juniper', 'cisco', 'cilium', 'k8s'];
+      keys.forEach(k => {
+        const btn = document.getElementById(`tab-mit-${k}`);
+        if (!btn) return;
+        if (k === syntaxKey) {
+          btn.className = "px-3 py-1 rounded text-xs font-mono font-medium bg-blue-600/20 text-blue-400 border border-blue-500/30 whitespace-nowrap";
+        } else {
+          btn.className = "px-3 py-1 rounded text-xs font-mono font-medium text-slate-400 hover:text-white whitespace-nowrap";
+        }
+      });
+      renderActiveMitigationCode();
+    }
+
+    function renderActiveMitigationCode() {
+      const display = document.getElementById('mitigation-code-display');
+      if (!display) return;
+      display.textContent = currentMitigationSyntaxes[activeMitigationSyntaxKey] || '// Haz clic en "Generar Políticas en 1-Clic" para compilar las reglas.';
+    }
+
+    function copyActiveMitigationSyntax() {
+      const code = currentMitigationSyntaxes[activeMitigationSyntaxKey] || document.getElementById('mitigation-code-display').textContent;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(code);
+        showToast('Código de política SDN copiado al portapapeles', 'success');
+      }
+    }
+
     // INITIAL SETUP
     window.addEventListener('DOMContentLoaded', () => {
       lucide.createIcons();
@@ -2298,6 +2963,8 @@
         loadOverviewMetrics();
         if (currentTab === 'mitre') loadMitreHeatmap();
         if (currentTab === 'copilot') loadCopilotHealth();
+        if (currentTab === 'campaigns') loadCampaigns();
+        if (currentTab === 'entities') loadEntities();
       }, 5000);
     });
   </script>

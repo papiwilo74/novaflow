@@ -106,6 +106,9 @@ class FlowAggregator:
         bytes_count: int,
         packets_count: int = 1,
         tcp_flags: int = 24,  # PSH, ACK por defecto
+        payload: bytes = b"",
+        domain: Optional[str] = None,
+        sni: Optional[str] = None,
     ):
         """Registra actividad de red entre dos extremos."""
         key = (src_ip, dst_ip, src_port, dst_port, protocol)
@@ -122,6 +125,9 @@ class FlowAggregator:
                     "bytes": bytes_count,
                     "packets": packets_count,
                     "tcp_flags": tcp_flags,
+                    "payload": payload,
+                    "domain": domain,
+                    "sni": sni,
                     "first_switched": now_ms,
                     "last_switched": now_ms,
                 }
@@ -130,6 +136,12 @@ class FlowAggregator:
                 flow["bytes"] += bytes_count
                 flow["packets"] += packets_count
                 flow["tcp_flags"] |= tcp_flags
+                if payload and not flow.get("payload"):
+                    flow["payload"] = payload
+                if domain and not flow.get("domain"):
+                    flow["domain"] = domain
+                if sni and not flow.get("sni"):
+                    flow["sni"] = sni
                 flow["last_switched"] = now_ms
 
     def flush(self) -> int:
@@ -165,6 +177,9 @@ class FlowAggregator:
                 dst_as=0,
                 src_mask=24,
                 dst_mask=24,
+                payload=f.get("payload", b""),
+                domain=f.get("domain", None),
+                sni=f.get("sni", None),
             )
             records.append(record)
 
@@ -269,6 +284,11 @@ class TargetHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         resp_bytes = len(resp_data) + 120  # Incluye cabeceras HTTP aproximadas
         total_bytes = req_bytes + resp_bytes
 
+        # Construir extracto L7 para DPI profundo en NovaFlow
+        req_headers_str = "".join(f"{k}: {v}\r\n" for k, v in self.headers.items())
+        req_payload = self.raw_requestline + req_headers_str.encode("utf-8") + b"\r\n" + (body[:512] if body else b"")
+        host_hdr = self.headers.get("Host", "localhost")
+
         if self.aggregator:
             # 1. Registrar flujo de ida (Cliente -> Servidor)
             self.aggregator.record_activity(
@@ -280,6 +300,8 @@ class TargetHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
                 bytes_count=req_bytes,
                 packets_count=max(2, req_bytes // 500 + 1),
                 tcp_flags=24,  # PSH, ACK
+                payload=req_payload,
+                domain=host_hdr,
             )
             # 2. Registrar flujo de vuelta (Servidor -> Cliente)
             self.aggregator.record_activity(
@@ -291,7 +313,9 @@ class TargetHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
                 bytes_count=resp_bytes,
                 packets_count=max(2, resp_bytes // 1400 + 1),
                 tcp_flags=24,  # PSH, ACK
+                payload=resp_data[:512],
             )
+
 
     def do_GET(self):
         self._handle_request("GET")
@@ -437,6 +461,11 @@ class RelayHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(resp_body)
 
+        # Construir extracto L7 para DPI profundo en NovaFlow
+        req_headers_str = "".join(f"{k}: {v}\r\n" for k, v in self.headers.items())
+        req_payload = self.raw_requestline + req_headers_str.encode("utf-8") + b"\r\n" + (body[:512] if body else b"")
+        host_hdr = self.headers.get("Host", "localhost")
+
         # Registrar telemetría
         resp_bytes = len(resp_body) + 120
         if self.aggregator:
@@ -448,6 +477,8 @@ class RelayHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
                 protocol=6,
                 bytes_count=req_bytes,
                 packets_count=max(2, req_bytes // 500 + 1),
+                payload=req_payload,
+                domain=host_hdr,
             )
             self.aggregator.record_activity(
                 src_ip="127.0.0.1",
@@ -457,7 +488,9 @@ class RelayHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
                 protocol=6,
                 bytes_count=resp_bytes,
                 packets_count=max(2, resp_bytes // 1400 + 1),
+                payload=resp_body[:512],
             )
+
 
     def do_GET(self):
         self._handle_relay("GET")

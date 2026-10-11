@@ -381,7 +381,38 @@ COMPLIANCE_MAPPING: Dict[AlertCategory, List[ComplianceRef]] = {
             audit_focus="Alertas en tiempo real ante intentos de extracción de hashes y tickets TGS.",
         ),
     ],
+    AlertCategory.WEB_APP_THREAT: [
+        ComplianceRef(
+            standard="PCI-DSS v4.0",
+            requirement_id="Req 6.4.2",
+            title="Protección de Aplicaciones Web Públicas (WAF/WAAP & NDR)",
+            description="Monitoreo continuo y mitigación activa de ataques dirigidos a aplicaciones web (OWASP Top 10, fuerza bruta, credential stuffing).",
+            audit_focus="Registros de detección de abuso de APIs, ataques de login y mitigación perimetral automatizada.",
+        ),
+        ComplianceRef(
+            standard="ISO/IEC 27001:2022",
+            requirement_id="Control A.8.26",
+            title="Seguridad de las Aplicaciones Web (Application Security)",
+            description="Protección de aplicaciones contra ataques automatizados, inyecciones y accesos no autorizados a servicios web y SaaS.",
+            audit_focus="Evidencia de alertas de seguridad web, análisis L7 y detección de bots no autorizados.",
+        ),
+        ComplianceRef(
+            standard="NIST CSF 2.0",
+            requirement_id="PR.AC-07",
+            title="Protección de Acceso y Autenticación Web",
+            description="Supervisión continua de mecanismos de autenticación y detección de ataques de fuerza bruta en interfaces web.",
+            audit_focus="Métricas de bloqueo de credential stuffing y alertas de autenticación abusiva.",
+        ),
+        ComplianceRef(
+            standard="CIS Controls v8",
+            requirement_id="Control 16.1",
+            title="Secure Application Software Management",
+            description="Monitoreo y defensa activa de servicios de aplicación y APIs expuestas a Internet.",
+            audit_focus="Detección de abusos de endpoint, escaneo de vulnerabilidades y SSRF.",
+        ),
+    ],
 }
+
 
 
 def get_compliance_for_category(category: AlertCategory) -> List[Dict[str, str]]:

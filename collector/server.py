@@ -16,11 +16,16 @@ try:
     from collector.parser import NetFlowParser
     from collector.storage import ClickHouseBatchFlusher
     from detector.engine import DetectionEngine
+    from collector.pipeline import WireSpeedPipeline
     from api.state import system_state
 except ImportError:
     from parser import NetFlowParser
     from storage import ClickHouseBatchFlusher
     from detector.engine import DetectionEngine
+    try:
+        from pipeline import WireSpeedPipeline
+    except ImportError:
+        WireSpeedPipeline = None
     try:
         from api.state import system_state
     except ImportError:
@@ -41,10 +46,12 @@ class NetFlowUDPServerProtocol(asyncio.DatagramProtocol):
         self,
         flusher: ClickHouseBatchFlusher,
         engine: Optional[DetectionEngine] = None,
+        pipeline: Optional[Any] = None,
         stats_interval: float = 5.0,
     ):
         self.flusher = flusher
         self.engine = engine
+        self.pipeline = pipeline
         self.stats_interval = stats_interval
         self.transport: Optional[asyncio.DatagramTransport] = None
 
@@ -66,7 +73,12 @@ class NetFlowUDPServerProtocol(asyncio.DatagramProtocol):
         self.bytes_received += data_len
         self.period_packets += 1
 
-        # Decodificar paquete binario
+        # Modo Wire-Speed desacoplado: entrega directa a ring buffer sin bloqueo
+        if self.pipeline and getattr(self.pipeline, "is_running", False):
+            self.pipeline.submit_packet(data)
+            return
+
+        # Decodificar paquete binario (modo monoproceso fallback)
         header, records = NetFlowParser.parse_packet(data)
         if records:
             rec_count = len(records)

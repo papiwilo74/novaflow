@@ -7,7 +7,10 @@ import asyncio
 import json
 import logging
 from typing import Callable, Dict, List, Optional
-import requests
+try:
+    import requests
+except ImportError:
+    requests = None
 
 from collector.parser import NetFlowRecord
 from detector.biflow import BiFlowStitcher
@@ -29,6 +32,14 @@ from detector.dispatcher import SOARWebhookDispatcher
 from detector.eta import EncryptedTrafficAnalyzer
 from detector.bloom_threat_intel import HighScaleThreatIntel
 from detector.sigma_engine import SigmaEngine
+from detector.rules.ad_threat import ActiveDirectoryThreatDetector
+from detector.rules.dga_threat import DGAThreatDetector
+from detector.rules.ja4_threat import JA4ThreatDetector
+from detector.rules.web_threat import WebThreatDetector
+from collector.l7_parsers import KerberosParser, DCERPCParser, DNSWireParser, HTTPWireParser
+from collector.tls_parser import TLSParser
+from detector.campaign_correlator import BayesianCampaignEngine
+from detector.entity import EntityLedger
 
 logger = logging.getLogger("NovaFlow.DetectionEngine")
 
@@ -74,6 +85,14 @@ class DetectionEngine:
         self.bloom_intel = HighScaleThreatIntel()
         sigma_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "rules", "sigma")
         self.sigma_engine = SigmaEngine(rules_dir=sigma_dir)
+
+        # 1.5. Detectores Especializados L7 & Identidad Empresarial
+        self.ad_threat_detector = ActiveDirectoryThreatDetector()
+        self.dga_threat_detector = DGAThreatDetector()
+        self.ja4_threat_detector = JA4ThreatDetector()
+        self.web_threat_detector = WebThreatDetector()
+        self.campaign_engine = BayesianCampaignEngine()
+        self.entity_ledger = EntityLedger()
 
         # 2. Instanciar Motor de Correlación Multi-Etapa (Kill Chain)
         self.kill_chain_correlator = AttackKillChainCorrelator()
@@ -161,6 +180,16 @@ class DetectionEngine:
         if sigma_alerts:
             generated_alerts.extend(sigma_alerts)
 
+        # 6.75. Protección Web & Microservicios SaaS (Este-Oeste / Acceso a DB / SSRF Metadata L3/L4)
+        alert_ew_web = self.web_threat_detector.evaluate_east_west_flow(flow)
+        if alert_ew_web:
+            generated_alerts.append(alert_ew_web)
+
+        # 6.8. Inspección Profunda de Carga Útil L7 (DPI Slice & Wire Data)
+        l7_alerts = self._inspect_l7_flow(flow)
+        if l7_alerts:
+            generated_alerts.extend(l7_alerts)
+
         # 7. Machine Learning: Isolation Forest (solo si no fue alertado por reglas deterministas)
         if not generated_alerts:
             alert_ml = self.ml_detector.analyze_flow(flow)
@@ -187,6 +216,116 @@ class DetectionEngine:
                 final_emitted_alerts.append(campaign)
 
         return final_emitted_alerts
+
+    def _inspect_l7_flow(self, flow: NetFlowRecord) -> List[SecurityAlert]:
+        """
+        Inspecciona el payload y metadatos L7 del flujo:
+        - DNS (Puerto 53 UDP/TCP o flow.domain): Decodifica QNAME/Answers y evalúa DGA, Fast-Flux y Shannon Entropy.
+        - TLS (Puertos 443, 8443 o ClientHello): Extrae huellas FoxIO JA4/JA3 y evalúa contra base C2.
+        - Kerberos (Puerto 88): Decodifica AS-REQ y TGS-REQ evaluando AS-REP Roasting y Kerberoasting.
+        - DCE-RPC (Puertos 135, 445 SMB): Decodifica Binds evaluando DCSync (drsuapi) y PsExec (svcctl).
+        """
+        alerts: List[SecurityAlert] = []
+        payload = getattr(flow, "payload", b"") or b""
+        domain = getattr(flow, "domain", None)
+
+        # 1. DNS (Puerto 53 o si trae metadato domain)
+        if flow.dst_port == 53 or flow.src_port == 53 or domain:
+            dns_queries = [domain] if domain else []
+            if payload:
+                dns_msg = DNSWireParser.parse(payload)
+                if dns_msg:
+                    dns_queries.extend(dns_msg.queries)
+                    # Si es respuesta DNS con IPs resueltas, evaluar Fast-Flux
+                    if dns_msg.is_response and dns_msg.resolved_ips:
+                        for q in dns_msg.queries:
+                            ttl = dns_msg.min_ttl or 30
+                            alert_ff = self.dga_threat_detector.evaluate_dns_response(
+                                domain=q,
+                                resolved_ips=dns_msg.resolved_ips,
+                                ttl=ttl,
+                                src_ip=flow.src_ip,
+                                dns_server=flow.dst_ip,
+                            )
+                            if alert_ff:
+                                alerts.append(alert_ff)
+
+            # Evaluar dominios consultados contra DGA y Entropía Shannon
+            for q_domain in set(dns_queries):
+                if not q_domain:
+                    continue
+                alert_dga = self.dga_threat_detector.evaluate_dns_query(
+                    domain=q_domain,
+                    src_ip=flow.src_ip,
+                    dst_ip=flow.dst_ip,
+                    dst_port=flow.dst_port,
+                )
+                if alert_dga:
+                    alerts.append(alert_dga)
+                else:
+                    alert_tunnel = self.dns_tunnel_detector.analyze_dns_query(
+                        src_ip=flow.src_ip,
+                        dst_ip=flow.dst_ip,
+                        domain=q_domain,
+                    )
+                    if alert_tunnel:
+                        alerts.append(alert_tunnel)
+
+        # 2. TLS / HTTPS (Puertos 443, 8443 o si contiene cabecera TLS Handshake)
+        if (flow.dst_port in (443, 8443) or (payload and payload[:1] == b"\x16")) and payload:
+            if TLSParser.is_tls_handshake(payload):
+                hello = TLSParser.parse_client_hello(payload)
+                if hello:
+                    alert_ja4 = self.ja4_threat_detector.evaluate_tls_hello(
+                        hello=hello,
+                        src_ip=flow.src_ip,
+                        dst_ip=flow.dst_ip,
+                        dst_port=flow.dst_port,
+                        protocol="TCP" if flow.protocol == 6 else "UDP",
+                    )
+                    if alert_ja4:
+                        alerts.append(alert_ja4)
+
+        # 3. Active Directory - Kerberos (Puerto 88)
+        if flow.dst_port == 88 and payload:
+            k_msg = KerberosParser.parse(payload)
+            if k_msg:
+                alert_ad = self.ad_threat_detector.evaluate_kerberos(
+                    k_msg,
+                    src_ip=flow.src_ip,
+                    kdc_ip=flow.dst_ip,
+                )
+                if alert_ad:
+                    alerts.append(alert_ad)
+
+        # 4. Active Directory - DCE-RPC / SMB (Puertos 135, 445)
+        if flow.dst_port in (135, 445) and payload:
+            rpc_msg = DCERPCParser.parse_payload(payload)
+            if rpc_msg:
+                alert_rpc = self.ad_threat_detector.evaluate_dcerpc(
+                    rpc_msg,
+                    src_ip=flow.src_ip,
+                    target_ip=flow.dst_ip,
+                    port=flow.dst_port,
+                )
+                if alert_rpc:
+                    alerts.append(alert_rpc)
+
+        # 5. Aplicación Web & SaaS HTTP/REST (Puertos 80, 8080, 8000, 3000, 5000 o payload HTTP)
+        if (flow.dst_port in (80, 8080, 8000, 3000, 5000, 443, 8443) or (payload and HTTPWireParser.is_http(payload))) and payload:
+            http_msg = HTTPWireParser.parse(payload)
+            if http_msg:
+                alert_web = self.web_threat_detector.evaluate_http_message(
+                    http_msg,
+                    src_ip=flow.src_ip,
+                    dst_ip=flow.dst_ip,
+                    dst_port=flow.dst_port,
+                )
+                if alert_web:
+                    alerts.append(alert_web)
+
+        return alerts
+
 
     def analyze_batch(self, flows: List[NetFlowRecord]) -> List[SecurityAlert]:
         """Analiza un lote completo de flujos."""
@@ -215,17 +354,30 @@ class DetectionEngine:
         for listener in self._listeners:
             try:
                 listener(alert)
-            except Exception as e:
-                logger.error(f"Error notificando listener: {e}")
+            except (TypeError, ValueError, RuntimeError) as callback_err:
+                logger.error(f"Error de ejecución en callback/listener de alerta: {callback_err}")
+            except Exception as unhandled_err:
+                logger.critical(f"Excepción inesperada en observer de alertas: {unhandled_err}", exc_info=True)
 
         # Actualizar grafo de ataque y despachar alerta a través del orquestador SOAR
         self.attack_graph.ingest_alert(alert)
         self.soar_dispatcher.dispatch_alert(alert)
 
+        # Actualizar entidad involucrada en el Entity Ledger
+        if hasattr(self, "entity_ledger") and self.entity_ledger:
+            self.entity_ledger.record_alert(alert)
+
+        # Correlación causal de campañas bayesianas
+        if hasattr(self, "campaign_engine") and self.campaign_engine:
+            _, escalated = self.campaign_engine.ingest_alert(alert)
+            if escalated and escalated.alert_id != alert.alert_id:
+                if not any(a.alert_id == escalated.alert_id for a in self.alerts_history):
+                    self._record_alert(escalated)
+
         # Intentar persistencia asíncrona en ClickHouse
         self._persist_alert_to_db(alert)
 
-        # Evaluar correlación de campañas Multi-Etapa (Kill Chain)
+        # Evaluar correlación de campañas Multi-Etapa (Kill Chain legado)
         campaign_alert = self.kill_chain_correlator.process_alert(alert)
         if campaign_alert:
             self._record_alert(campaign_alert)
@@ -234,7 +386,7 @@ class DetectionEngine:
 
     def _persist_alert_to_db(self, alert: SecurityAlert):
         """Inserta la alerta en la tabla novaflow.security_alerts de ClickHouse."""
-        if not self.ch_reachable:
+        if not self.ch_reachable or requests is None:
             return
 
         try:
@@ -263,6 +415,13 @@ class DetectionEngine:
                 data=line.encode("utf-8"),
                 timeout=0.1,
             )
-        except Exception:
-            # Si ClickHouse no está online, conmutar a memoria pura y no reintentar
+        except (requests.RequestException, ConnectionError, TimeoutError, OSError) as net_err:
+            # Circuit breaker de red: Si ClickHouse no está disponible, conmutar a memoria pura
+            logger.debug(f"ClickHouse no disponible ({net_err.__class__.__name__}). Conmutando motor a persistencia en memoria local.")
             self.ch_reachable = False
+        except (TypeError, ValueError, json.JSONDecodeError) as ser_err:
+            logger.error(f"Error de serialización al persistir alerta {alert.alert_id} en ClickHouse: {ser_err}")
+        except Exception as unhandled_err:
+            logger.error(f"Error inesperado al persistir alerta en ClickHouse: {unhandled_err}")
+            self.ch_reachable = False
+

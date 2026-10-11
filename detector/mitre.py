@@ -121,6 +121,14 @@ MITRE_MAPPING: Dict[AlertCategory, MitreAttackRef] = {
         subtechnique_name="Kerberoasting",
         url="https://attack.mitre.org/techniques/T1558/003/",
     ),
+    AlertCategory.WEB_APP_THREAT: MitreAttackRef(
+        tactic="Initial Access / Credential Access",
+        technique_id="T1190",
+        technique_name="Exploit Public-Facing Application & Credential Abuse",
+        subtechnique_id="T1110.001",
+        subtechnique_name="Password Guessing / Credential Stuffing",
+        url="https://attack.mitre.org/techniques/T1190/",
+    ),
 }
 
 

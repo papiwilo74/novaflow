@@ -42,6 +42,7 @@ class FlowEvent:
     bytes: int
     duration_ms: float
     timestamp: float
+    payload: bytes = b""
 
     def to_netflow_record(self) -> NetFlowRecord:
         """Convierte el evento eBPF en un NetFlowRecord formal compatible con el motor de detección."""
@@ -67,6 +68,7 @@ class FlowEvent:
             dst_as=0,
             src_mask=24,
             dst_mask=24,
+            payload=self.payload,
         )
 
 
