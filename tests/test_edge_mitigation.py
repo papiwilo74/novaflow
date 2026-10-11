@@ -6,6 +6,7 @@ import unittest
 try:
     from starlette.testclient import TestClient
     from api.security.auth import JWTManager, Role
+    from api.main import app
 except ImportError:
     TestClient = None
     app = None

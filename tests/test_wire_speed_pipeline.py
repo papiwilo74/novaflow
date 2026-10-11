@@ -173,10 +173,15 @@ class TestWireSpeedPipelineIntegration(unittest.TestCase):
                 )
                 self.assertTrue(pipeline.submit_packet(pkt))
 
-            # Dar breve margen a los workers para procesar
-            time.sleep(0.4)
-
+            # Dar margen a los workers para inicializarse y procesar (adaptable a Windows spawn)
+            deadline = time.time() + 4.0
             metrics = pipeline.get_metrics()
+            while time.time() < deadline:
+                metrics = pipeline.get_metrics()
+                if metrics["total_worker_packets"] >= total_packets:
+                    break
+                time.sleep(0.1)
+
             self.assertEqual(metrics["total_submitted_packets"], total_packets)
             self.assertEqual(metrics["total_worker_packets"], total_packets)
             self.assertEqual(metrics["total_worker_flows"], total_packets)
@@ -205,9 +210,14 @@ class TestWireSpeedPipelineIntegration(unittest.TestCase):
                 )
                 pipeline.submit_packet(pkt)
 
-            time.sleep(0.4)
-
+            deadline = time.time() + 4.0
             alerts = pipeline.get_alerts()
+            while time.time() < deadline:
+                alerts = pipeline.get_alerts()
+                if len(alerts) >= 1:
+                    break
+                time.sleep(0.1)
+
             self.assertGreaterEqual(len(alerts), 1)
             first_alert = alerts[0]
             self.assertIn("src_ip", first_alert)

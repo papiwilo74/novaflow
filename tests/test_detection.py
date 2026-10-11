@@ -185,7 +185,7 @@ class TestDetectionEngine(unittest.TestCase):
         self.assertTrue(ml_detector.is_trained)
 
         # Flujo basal -> no debe generar alerta
-        normal_test = make_record(packets=15, bytes_count=8500)
+        normal_test = make_record(src_port=50050, packets=15, bytes_count=9000)
         self.assertIsNone(ml_detector.analyze_flow(normal_test))
 
         # Flujo anómalo extremo (desvío de paquetes y flags)
