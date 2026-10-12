@@ -304,6 +304,95 @@ class WebThreatDetector:
                                 },
                             )
 
+        # ------------------------------------------------------------------
+        # 5. Detección de Inyección SQL (T1190 / CWE-89) en URI o Payload
+        # ------------------------------------------------------------------
+        from urllib.parse import unquote
+        uri_decoded = unquote(unquote(msg.uri or ""))
+        body_decoded = unquote(msg.body_sample.decode("utf-8", errors="ignore") if msg.body_sample else "")
+        raw_combined = f"{uri_decoded} {body_decoded}".lower()
+        sqli_patterns = [
+            "' or '1'='1",
+            "' or 1=1",
+            "\" or \"1\"=\"1",
+            "union select",
+            "union all select",
+            "select * from",
+            "drop table",
+            "1=1--",
+            "'--",
+            "sleep(",
+            "pg_sleep(",
+            "benchmark(",
+            "waitfor delay",
+        ]
+        for pat in sqli_patterns:
+            if pat in raw_combined:
+                alert_key = f"sqli_{src_ip}_{pat}"
+                if not self._is_cooling_down(alert_key, now):
+                    return SecurityAlert(
+                        severity=AlertSeverity.CRITICAL,
+                        category=AlertCategory.WEB_APP_THREAT,
+                        title=f"Intento Crítico de Inyección SQL (SQLi) desde {src_ip}",
+                        description=(
+                            f"Se detectó un patrón inequívoco de inyección SQL ('{pat}') en la petición HTTP "
+                            f"hacia '{msg.path}' desde {src_ip}. Indica un intento de elusión de autenticación "
+                            f"o extracción no autorizada de la base de datos de OrderFlowApp / SaaS."
+                        ),
+                        src_ip=src_ip,
+                        dst_ip=dst_ip,
+                        dst_port=dst_port,
+                        protocol=6,
+                        confidence=0.97,
+                        metrics={
+                            "attack_vector": "SQL_INJECTION",
+                            "pattern_detected": pat,
+                            "endpoint": msg.path,
+                            "method": msg.method,
+                        },
+                    )
+
+        # ------------------------------------------------------------------
+        # 6. Detección de Fuzzing de Archivos Sensibles y Traversal (T1595 / T1083)
+        # ------------------------------------------------------------------
+        sensitive_patterns = [
+            "/.env",
+            "/.git",
+            "/wp-admin",
+            "/phpmyadmin",
+            "/id_rsa",
+            "/etc/passwd",
+            "/etc/shadow",
+            "/.aws/credentials",
+            "/docker-compose.yml",
+            "/server.js.bak",
+            "/database.sql",
+        ]
+        for spat in sensitive_patterns:
+            if spat in path_lower:
+                alert_key = f"sensitive_fuzz_{src_ip}_{spat}"
+                if not self._is_cooling_down(alert_key, now):
+                    return SecurityAlert(
+                        severity=AlertSeverity.HIGH,
+                        category=AlertCategory.WEB_APP_THREAT,
+                        title=f"Fuzzing de Archivos Sensibles / Configuración Crítica desde {src_ip}",
+                        description=(
+                            f"El host {src_ip} intentó acceder a recursos de configuración sensible "
+                            f"('{spat}') en '{msg.path}'. Firma clásica de escaneo DAST automatizado por OmniBreach."
+                        ),
+                        src_ip=src_ip,
+                        dst_ip=dst_ip,
+                        dst_port=dst_port,
+                        protocol=6,
+                        confidence=0.92,
+                        metrics={
+                            "attack_vector": "SENSITIVE_FILE_FUZZING",
+                            "resource": spat,
+                            "endpoint": msg.path,
+                            "method": msg.method,
+                        },
+                    )
+
         return None
 
     def evaluate_east_west_flow(self, flow: NetFlowRecord) -> Optional[SecurityAlert]:

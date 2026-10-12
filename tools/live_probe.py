@@ -32,6 +32,9 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from collector.parser import NetFlowRecord
+from collector.l7_parsers import HTTPWireParser
+from detector.models import AlertSeverity
+from detector.rules.web_threat import WebThreatDetector
 from tools.traffic_gen import build_netflow_v5_packet
 
 logging.basicConfig(
@@ -399,6 +402,7 @@ class RelayHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
     """Proxy HTTP inverso que reenvía peticiones y extrae telemetría NetFlow."""
 
     aggregator: Optional[FlowAggregator] = None
+    web_detector: Optional[WebThreatDetector] = None
     relay_target_url: str = "http://127.0.0.1:3000"
     server_port: int = 8080
     blocked_ips: set = set()
@@ -428,6 +432,35 @@ class RelayHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length) if content_length > 0 else None
+
+        # Inspección profunda L7 en el cable (DPI) antes de reenviar al backend
+        req_headers_str = "".join(f"{k}: {v}\r\n" for k, v in self.headers.items())
+        req_payload = self.raw_requestline + req_headers_str.encode("utf-8") + b"\r\n" + (body if body else b"")
+        if self.web_detector:
+            msg = HTTPWireParser.parse(req_payload)
+            if msg:
+                alert = self.web_detector.evaluate_http_message(
+                    msg=msg, src_ip=client_ip, dst_ip="127.0.0.1", dst_port=self.server_port
+                )
+                if alert:
+                    logger.warning(f"[NOVAFLOW L7 ALERT] {alert.title} | Vector: {alert.metrics.get('attack_vector')}")
+                    if alert.severity in (AlertSeverity.HIGH, AlertSeverity.CRITICAL):
+                        self.blocked_ips.add(client_ip)
+                        logger.error(f"[SOAR AUTO-CONTAINMENT] IP {client_ip} aislada en el escudo. Bloqueando tráfico.")
+                        self.send_response(403)
+                        self.send_header("Content-Type", "application/json")
+                        resp_body = json.dumps({
+                            "status": "BLOCKED",
+                            "shield": "NovaFlow NDR SOAR Active Defense",
+                            "reason": f"Ataque neutralizado en tiempo real: {alert.title}",
+                            "attacker_ip": client_ip,
+                            "target_protected": self.relay_target_url,
+                            "attack_vector": alert.metrics.get("attack_vector"),
+                        }).encode("utf-8")
+                        self.send_header("Content-Length", str(len(resp_body)))
+                        self.end_headers()
+                        self.wfile.write(resp_body)
+                        return
 
         target_full_url = f"{self.relay_target_url.rstrip('/')}{self.path}"
         req_bytes = len(self.raw_requestline) + len(str(self.headers).encode("utf-8")) + (len(body) if body else 0)
@@ -514,6 +547,13 @@ def run_relay_mode(listen_port: int, relay_target: str, novaflow_host: str, nova
     start_soar_sync(novaflow_api, [RelayHTTPRequestHandler])
 
     RelayHTTPRequestHandler.aggregator = aggregator
+    RelayHTTPRequestHandler.web_detector = WebThreatDetector(
+        auth_rate_threshold=5,
+        auth_window_secs=10.0,
+        api_flood_threshold=20,
+        api_flood_window_secs=5.0,
+        alert_cooldown_secs=0.2,
+    )
     RelayHTTPRequestHandler.relay_target_url = relay_target
     RelayHTTPRequestHandler.server_port = listen_port
 
